@@ -17,7 +17,7 @@ struct HomeView: View {
                 activityTile
             }
         }
-        .background(Theme.Colour.canvas)
+        .background(Theme.Colour.parchment)
         .navigationTitle("BlarneyKey")
     }
 
@@ -126,7 +126,7 @@ struct HomeView: View {
         }
         .padding(Theme.Space.section)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Colour.canvas)
+        .background(Theme.Colour.parchment)
     }
 
     // MARK: - Activity (parchment tile)

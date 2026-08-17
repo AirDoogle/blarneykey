@@ -30,8 +30,8 @@ enum Theme {
 
         // Surfaces that follow the theme.
         static let canvas = dynamic(light: 0xFFFFFF, dark: 0x1C1C1E)
-        static let parchment = dynamic(light: 0xF5F5F7, dark: 0x242426)
-        static let pearl = dynamic(light: 0xFAFAFC, dark: 0x2C2C2E)
+        static let parchment = dynamic(light: 0xF5F5F7, dark: 0x2C2C2E)
+        static let pearl = dynamic(light: 0xFAFAFC, dark: 0x38383A)
 
         // Near-black tiles. Fixed: dark in both themes, by design.
         static let tile1 = fixed(0x272729)
@@ -181,13 +181,24 @@ extension View {
             .foregroundStyle(onDark ? Theme.Colour.onDarkFaint : Theme.Colour.inkMuted48)
     }
 
-    /// The 1pt hairline ring used on utility cards. A ring, not a border.
+    /// A card. No border and no shadow: it reads as a card because its surface differs
+    /// from the tile behind it, which is the only elevation cue the design system allows
+    /// outside product photography.
+    ///
+    /// `bordered` is for text inputs only, where a boundary is what makes the field
+    /// discoverable in the first place.
+    @ViewBuilder
     func cardSurface(_ fill: Color = Theme.Colour.canvas,
-                     radius: CGFloat = Theme.Radius.lg) -> some View {
-        background(fill, in: RoundedRectangle(cornerRadius: radius))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius)
-                    .strokeBorder(Theme.Colour.hairline, lineWidth: 1)
-            )
+                     radius: CGFloat = Theme.Radius.lg,
+                     bordered: Bool = false) -> some View {
+        if bordered {
+            background(fill, in: RoundedRectangle(cornerRadius: radius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: radius)
+                        .strokeBorder(Theme.Colour.hairline, lineWidth: 1)
+                )
+        } else {
+            background(fill, in: RoundedRectangle(cornerRadius: radius))
+        }
     }
 }

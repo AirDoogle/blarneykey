@@ -7,7 +7,7 @@ struct SnippetsView: View {
     var body: some View {
         Page(
             title: "Snippets",
-            lead: "Say a trigger phrase and BlarneyKey pastes the full text instead. For example, say \"weekly business review\"."
+            lead: "Say a trigger phrase and BlarneyKey pastes the full text instead. For example, say \"Get Things Done\"."
         ) {
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 HStack {
@@ -116,7 +116,7 @@ private struct SnippetEditor: View {
                     .font(.system(size: 12, design: .monospaced))
                     .frame(minHeight: 190)
                     .padding(4)
-                    .cardSurface(Theme.Colour.canvas, radius: Theme.Radius.sm)
+                    .cardSurface(Theme.Colour.canvas, radius: Theme.Radius.sm, bordered: true)
             }
 
             HStack(spacing: Theme.Space.xs) {

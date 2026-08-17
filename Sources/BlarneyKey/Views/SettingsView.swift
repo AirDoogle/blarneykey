@@ -46,9 +46,9 @@ struct SettingsView: View {
     // MARK: - Hotkey
 
     private var hotkeySection: some View {
-        Section_(label: "HOTKEY", index: 2) {
+        Section_(label: "BLARNEYKEY", index: 2) {
             Row(
-                title: "Dictation hotkey",
+                title: "Blarney key (dictation hotkey)",
                 detail: store.settings.doubleTapToLock
                     ? "Hold to talk, or double-tap to lock dictation on. Tap again, press Escape, or click stop on the pill."
                     : "Hold to talk."
@@ -248,15 +248,8 @@ struct SettingsView: View {
 
     private var privacySection: some View {
         Section_(label: "PRIVACY", index: 7) {
-            Row(title: "Network calls",
-                detail: "BlarneyKey makes none. Transcription is a local process; nothing is uploaded.") {
-                Text("none")
-                    .font(Theme.Text.captionStrong())
-                    .foregroundStyle(Theme.Colour.inkMuted48)
-            }
-            RowDivider()
             Row(title: "History",
-                detail: "\(store.sessions.count) sessions stored on this Mac.") {
+                detail: "\(store.sessions.count) sessions stored on this Mac, and nowhere else.") {
                 Button("Clear") { store.clearHistory() }
                     .buttonStyle(UtilityButtonStyle())
             }

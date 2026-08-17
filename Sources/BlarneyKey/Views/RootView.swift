@@ -164,7 +164,7 @@ struct RootView: View {
             row("Sessions today", "\(store.sessionsToday)")
         }
         .padding(Theme.Space.sm)
-        .cardSurface(Theme.Colour.pearl, radius: Theme.Radius.md)
+        .cardSurface(Theme.Colour.canvas, radius: Theme.Radius.md)
         .padding(Theme.Space.sm)
     }
 

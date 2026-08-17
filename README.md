@@ -209,6 +209,25 @@ Switch Settings → Insertion to **Type it out**. App logs go to the system log:
 log stream --predicate 'process == "BlarneyKey"' --level default
 ```
 
+## Provenance and licences
+
+Everything here is either written for this project or a public, permissively licensed
+component. Nothing is derived from anyone's private or internal software.
+
+| Part | Origin | Licence |
+|---|---|---|
+| The app itself | Written for this project | MIT (see `LICENSE`) |
+| `whisperkit-cli` | [argmaxinc/argmax-oss-swift](https://github.com/argmaxinc/argmax-oss-swift), installed from Homebrew | MIT |
+| distil-whisper `distil-large-v3` | Downloaded from Hugging Face at install time | MIT |
+| Foundation Models framework | Apple's public macOS SDK, for the optional cleanup pass | Apple SDK terms, no entitlement needed |
+| App icon | Generated from the prompt in `assets/LOGO_PROMPT.md` | This project |
+| Cork AI Consulting mark | Cork AI Consulting's own logo | Cork AI Consulting |
+
+The app declares **no Swift package dependencies**, links **only public frameworks**, uses
+**no private API** (no `dlopen`, no `NSClassFromString`, no underscored symbols), and ships
+**no entitlements** beyond the microphone usage string. The speech model is never
+redistributed: `setup.sh` fetches it from Hugging Face on the machine it will run on.
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE). Do what you like with it.
