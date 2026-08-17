@@ -149,7 +149,7 @@ final class Store: ObservableObject {
         [Snippet(
             trigger: "Get Things Done",
             expansion: """
-                ## Whats the next action?
+                ## What's the next action?
 
                 **Do it now:**
                 -\u{0020}
@@ -160,7 +160,7 @@ final class Store: ObservableObject {
                 **Defer:**
                 -\u{0020}
 
-                **Archive**
+                **Archive:**
                 -\u{0020}
                 """
         )]

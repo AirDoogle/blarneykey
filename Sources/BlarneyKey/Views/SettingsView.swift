@@ -146,7 +146,7 @@ struct SettingsView: View {
             Row(
                 title: "On-device cleanup",
                 detail: Cleanup.unavailableReason
-                    ?? "Polish transcripts with Apple Foundation Models. Runs locally; nothing leaves the device."
+                    ?? "Polish transcripts with Apple Intelligence's on-device model. Runs locally; nothing leaves the device."
             ) {
                 if Cleanup.isAvailable {
                     Toggle("", isOn: binding(\.cleanupEverywhere)).labelsHidden()

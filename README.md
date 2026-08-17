@@ -12,7 +12,9 @@ the gift of the gab to anyone who kisses it. This is the same idea with less ben
 
 Built from public parts only: [WhisperKit](https://github.com/argmaxinc/WhisperKit) (MIT)
 via Homebrew, a Whisper model from Hugging Face, and Apple's public Foundation Models
-framework for the optional cleanup pass.
+framework for the optional cleanup pass — the public API Apple ships for third-party
+access to the on-device Apple Intelligence model, which needs no entitlement and runs
+inference locally.
 
 ## What it does
 
@@ -32,7 +34,7 @@ framework for the optional cleanup pass.
 - **App allowlist** — restrict where dictation can paste, per app, with an *allow
   everything* switch that's on by default. On your own machine there's no reason to
   fence yourself in; turn it off if you want the discipline.
-- **On-device cleanup** — optionally polish transcripts with Apple Foundation Models to
+- **On-device cleanup** — optionally polish transcripts with Apple Intelligence to
   fix punctuation and drop filler words. Local, and per-app or everywhere. It refuses a
   result that's wildly longer or shorter than the input, which is how you catch the model
   *answering* your dictation instead of tidying it.

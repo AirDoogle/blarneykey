@@ -3,8 +3,12 @@ import Foundation
 import FoundationModels
 #endif
 
-/// Tidies a raw transcript using Apple's on-device Foundation Models framework —
-/// the public API, and it runs entirely locally.
+/// Tidies a raw transcript using the Foundation Models framework — the public API Apple
+/// ships for third-party access to the Apple Intelligence on-device model.
+///
+/// Public in every sense: the framework sits in the SDK's `System/Library/Frameworks`
+/// (not `PrivateFrameworks`), its `.swiftinterface` declares these calls `public`, and
+/// using it needs no entitlement. Inference happens on the user's own machine.
 ///
 /// This is best-effort: if the framework is missing, the model is not available on
 /// this Mac, or anything throws, the caller keeps the raw transcript. Dictation that
