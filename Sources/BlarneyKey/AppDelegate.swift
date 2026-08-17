@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dictation.requestMicrophoneAccess()
         wireHotKey()
         observeState()
+        observeAppearance()
 
         // A revoked grant looks identical to a first run, and both leave the app unable
         // to type, so both open the window where the banner explains it.
@@ -75,6 +76,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] key in
                 self?.hotKey.binding = key
                 self?.buildMenu()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// nil appearance means "follow the system", which is the default.
+    private func observeAppearance() {
+        store.$settings
+            .map(\.appearance)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { mode in
+                switch mode {
+                case .system: NSApp.appearance = nil
+                case .light: NSApp.appearance = NSAppearance(named: .aqua)
+                case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+                }
             }
             .store(in: &cancellables)
     }

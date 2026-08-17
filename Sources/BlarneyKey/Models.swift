@@ -288,8 +288,23 @@ enum InsertionMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Follow the system, or pin the app to one appearance.
+enum AppearanceMode: String, Codable, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "Match system"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+}
+
 struct Settings: Codable {
     var binding: KeyBinding = .default
+    var appearance: AppearanceMode = .system
     var insertionMode: InsertionMode = .paste
     var language: String? = "en"
     var playSounds = true
@@ -317,7 +332,8 @@ struct Settings: Codable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case binding, hotKey, insertionMode, language, playSounds, showPill, doubleTapToLock
+        case binding, hotKey, insertionMode, appearance, language, playSounds, showPill
+        case doubleTapToLock
         case minimumDuration, allowAllApps, cleanupEverywhere, typingWPM
         case modelPath, modelPrefix, cliPath
     }
@@ -337,6 +353,7 @@ struct Settings: Codable {
 
         insertionMode = try c.decodeIfPresent(InsertionMode.self, forKey: .insertionMode)
             ?? insertionMode
+        appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? appearance
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? language
         playSounds = try c.decodeIfPresent(Bool.self, forKey: .playSounds) ?? playSounds
         showPill = try c.decodeIfPresent(Bool.self, forKey: .showPill) ?? showPill
@@ -357,6 +374,7 @@ struct Settings: Codable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(binding, forKey: .binding)
         try c.encode(insertionMode, forKey: .insertionMode)
+        try c.encode(appearance, forKey: .appearance)
         try c.encodeIfPresent(language, forKey: .language)
         try c.encode(playSounds, forKey: .playSounds)
         try c.encode(showPill, forKey: .showPill)

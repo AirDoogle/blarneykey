@@ -10,6 +10,7 @@ struct SettingsView: View {
             title: "Settings",
             lead: "Audio never leaves your Mac. Transcription runs on the Neural Engine."
         ) {
+            appearanceSection
             hotkeySection
             insertionSection
             cleanupSection
@@ -28,10 +29,24 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Appearance
+
+    private var appearanceSection: some View {
+        Section_(label: "APPEARANCE", index: 1) {
+            Row(title: "Theme", detail: "Dark tiles stay dark in both, by design.") {
+                Picker("", selection: binding(\.appearance)) {
+                    ForEach(AppearanceMode.allCases) { Text($0.label).tag($0) }
+                }
+                .labelsHidden()
+                .frame(width: 148)
+            }
+        }
+    }
+
     // MARK: - Hotkey
 
     private var hotkeySection: some View {
-        Section_(label: "HOTKEY", index: 1) {
+        Section_(label: "HOTKEY", index: 2) {
             Row(
                 title: "Dictation hotkey",
                 detail: store.settings.doubleTapToLock
@@ -99,7 +114,7 @@ struct SettingsView: View {
     // MARK: - Insertion
 
     private var insertionSection: some View {
-        Section_(label: "INSERTION", index: 2) {
+        Section_(label: "INSERTION", index: 3) {
             Row(title: "How text is inserted", detail: store.settings.insertionMode.detail) {
                 Picker("", selection: binding(\.insertionMode)) {
                     ForEach(InsertionMode.allCases) { Text($0.label).tag($0) }
@@ -142,7 +157,7 @@ struct SettingsView: View {
     // MARK: - Cleanup
 
     private var cleanupSection: some View {
-        Section_(label: "CLEANUP", index: 3) {
+        Section_(label: "CLEANUP", index: 4) {
             Row(
                 title: "On-device cleanup",
                 detail: Cleanup.unavailableReason
@@ -171,7 +186,7 @@ struct SettingsView: View {
     // MARK: - Speech
 
     private var speechSection: some View {
-        Section_(label: "SPEECH", index: 4) {
+        Section_(label: "SPEECH", index: 5) {
             Row(title: "Language", detail: "Leave empty to let the model detect it.") {
                 TextField("en", text: Binding(
                     get: { store.settings.language ?? "" },
@@ -206,7 +221,7 @@ struct SettingsView: View {
     // MARK: - Model
 
     private var modelSection: some View {
-        Section_(label: "MODEL", index: 5) {
+        Section_(label: "MODEL", index: 6) {
             Row(title: "Model folder", detail: store.settings.modelPath) {
                 HStack(spacing: Theme.Space.xs) {
                     if modelReady {
@@ -232,7 +247,7 @@ struct SettingsView: View {
     // MARK: - Privacy
 
     private var privacySection: some View {
-        Section_(label: "PRIVACY", index: 6) {
+        Section_(label: "PRIVACY", index: 7) {
             Row(title: "Network calls",
                 detail: "BlarneyKey makes none. Transcription is a local process; nothing is uploaded.") {
                 Text("none")

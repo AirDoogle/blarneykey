@@ -14,6 +14,18 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp ".build/release/BlarneyKey" "$APP/Contents/MacOS/BlarneyKey"
 
+# Marks the app draws at runtime, plus the icon. Regenerate the icon with
+# `python3 assets/make-icon.py && iconutil -c icns assets/BlarneyKey.iconset -o assets/BlarneyKey.icns`
+for asset in blarneykey-mark cork-ai-consulting-mark; do
+  cp "assets/$asset.png" "$APP/Contents/Resources/" 2>/dev/null \
+    || echo "    warning: assets/$asset.png missing, the app will fall back to a symbol"
+done
+if [ -f "assets/BlarneyKey.icns" ]; then
+  cp "assets/BlarneyKey.icns" "$APP/Contents/Resources/BlarneyKey.icns"
+else
+  echo "    warning: assets/BlarneyKey.icns missing, the app will show the generic icon"
+fi
+
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -22,6 +34,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key><string>BlarneyKey</string>
   <key>CFBundleIdentifier</key><string>com.douglaswoollam.blarneykey</string>
   <key>CFBundleName</key><string>BlarneyKey</string>
+  <key>CFBundleIconFile</key><string>BlarneyKey</string>
   <key>CFBundleDisplayName</key><string>BlarneyKey</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>

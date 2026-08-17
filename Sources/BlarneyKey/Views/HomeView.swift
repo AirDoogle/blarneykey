@@ -35,7 +35,7 @@ struct HomeView: View {
                 .foregroundStyle(Theme.Colour.onDark)
                 .reveal(1, aboveFold: true, blurred: true)
 
-            Text("Hold \(store.settings.binding.shortLabel) and talk. The words land wherever your cursor is, and nothing leaves the Mac.")
+            Text("\(store.settings.binding.shortLabel) is your Blarney key. Hold it, talk, and the words land wherever your cursor is.")
                 .font(Theme.Text.lead())
                 .tracking(Theme.Text.Track.body)
                 .foregroundStyle(Theme.Colour.bodyMuted)
@@ -52,8 +52,8 @@ struct HomeView: View {
                     .overlay(Capsule().strokeBorder(Theme.Colour.onDarkFaint.opacity(0.3)))
 
                 Text(store.settings.doubleTapToLock
-                     ? "hold to dictate · double-tap to lock on"
-                     : "hold to dictate")
+                     ? "your Blarney key · hold to talk · double-tap to lock on"
+                     : "your Blarney key · hold to talk")
                     .font(Theme.Text.caption())
                     .foregroundStyle(Theme.Colour.onDarkFaint)
             }
