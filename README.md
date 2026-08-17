@@ -149,11 +149,44 @@ tries to fetch them from Hugging Face at runtime and fails on a restricted netwo
 
 System Settings → General → Login Items → **+** → `/Applications/BlarneyKey.app`.
 
+## Stable signing
+
+macOS ties an app's Accessibility permission to its **designated requirement**. Signed
+ad-hoc there is no certificate, so that requirement falls back to the code hash, which
+changes on every single build. The result is nasty: the app appears ticked in Privacy &
+Security while the entry authorises nothing, dictation keeps recording, and the paste
+silently does nothing.
+
+`build.sh` avoids this by signing with a real certificate when it finds one. It looks for,
+in order: `$BLARNEYKEY_SIGNING_IDENTITY`, a `BlarneyKey Self-Signed` certificate, a
+`Developer ID Application`, then an `Apple Development` certificate. Signed that way the
+requirement becomes the bundle identifier plus the certificate, and rebuilds stop breaking
+the grant.
+
+Check what you have:
+
+```bash
+security find-identity -v -p codesigning
+```
+
+**An `Apple Development` certificate is free** and comes with any Apple ID: open Xcode →
+Settings → Accounts, add your Apple ID, and it issues one. If Xcode has ever built anything
+on the machine, it is probably there already. That is all this needs; the $99 Developer
+Program is only required to *distribute* a signed app to other people.
+
+**If you would rather not involve an Apple ID,** make a self-signed certificate instead.
+Keychain Access → Certificate Assistant → Create a Certificate. Name it
+`BlarneyKey Self-Signed`, set Identity Type to **Self Signed Root** and Certificate Type to
+**Code Signing**, then create it. `build.sh` picks it up by name.
+
+Either way, the switch changes the designated requirement once, so **re-grant Accessibility
+one final time** after the first signed build. It holds from then on.
+
 ## Rebuilding
 
-`./build.sh` re-signs ad-hoc, which changes the code hash. macOS sometimes drops the
-Accessibility grant when that happens — if the hotkey goes dead after a rebuild, toggle
-BlarneyKey off and on in Privacy & Security → Accessibility.
+`./build.sh` recompiles, reinstalls to `/Applications` and re-signs. With a signing
+certificate in place (see above) the Accessibility grant survives. Without one it does not,
+and the script says so loudly every time.
 
 ## When something breaks
 
