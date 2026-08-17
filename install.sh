@@ -49,6 +49,12 @@ step "Fetching the source"
 if [ -d "$SRC/.git" ]; then
   git -C "$SRC" pull --ff-only
   echo "    updated $SRC"
+elif [ -d "$SRC" ] && [ -n "$(ls -A "$SRC" 2>/dev/null)" ]; then
+  # Something is already there that is not a checkout. Do not clobber it.
+  die "$SRC exists and is not a BlarneyKey checkout.
+   Move it, or choose somewhere else:
+
+     BLARNEYKEY_SRC=~/somewhere-else bash install.sh"
 else
   mkdir -p "$(dirname "$SRC")"
   git clone --depth 1 "$REPO_URL" "$SRC"
