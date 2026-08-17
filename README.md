@@ -52,7 +52,7 @@ builds the app, installs it to `/Applications` and opens it. Five to ten minutes
 it the 1.4 GB model download.
 
 Then grant one permission — **System Settings → Privacy & Security → Accessibility** — and
-hold Right ⌘ to talk. The app shows a banner with a button until you do.
+hold Right ⌥ to talk. The app shows a banner with a button until you do.
 
 **Requirements:** Apple Silicon, macOS 15+, [Homebrew](https://brew.sh), and the Xcode
 command line tools (`xcode-select --install`).

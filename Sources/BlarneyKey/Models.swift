@@ -176,7 +176,7 @@ struct KeyBinding: Codable, Equatable, Hashable {
     /// Set when this came from the preset list, so the UI can show the nicer name.
     var preset: String?
 
-    static let `default` = HotKey.rightCommand.binding
+    static let `default` = HotKey.rightOption.binding
 
     private var presetKey: HotKey? { preset.flatMap(HotKey.init(rawValue:)) }
 
@@ -299,7 +299,7 @@ struct Settings: Codable {
     var doubleTapToLock = true
 
     /// Taps shorter than this are treated as a stray keypress, not dictation.
-    var minimumDuration: TimeInterval = 0.35
+    var minimumDuration: TimeInterval = 0.25
 
     /// Skip the allowlist entirely. Sensible on a personal machine.
     var allowAllApps = true

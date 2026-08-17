@@ -144,9 +144,25 @@ final class Store: ObservableObject {
     }
 
     private static func defaultSnippets() -> [Snippet] {
+        // The trailing spaces after each dash are deliberate: they leave the cursor ready
+        // to type, and are written as escapes so no editor strips them.
         [Snippet(
-            trigger: "weekly business review",
-            expansion: "## Weekly Business Review\n\n**Wins:**\n- \n\n**Risks:**\n- \n\n**Asks:**\n- "
+            trigger: "Get Things Done",
+            expansion: """
+                ## Whats the next action?
+
+                **Do it now:**
+                -\u{0020}
+
+                **Delegate:**
+                -\u{0020}
+
+                **Defer:**
+                -\u{0020}
+
+                **Archive**
+                -\u{0020}
+                """
         )]
     }
 

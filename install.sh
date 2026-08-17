@@ -88,6 +88,6 @@ cat <<'DONE'
     It shows a banner until the permission is granted, with a button that
     opens the right pane for you.
 
-    Then hold Right Command, say something, and let go.
+    Then hold Right Option, say something, and let go.
 
 DONE
