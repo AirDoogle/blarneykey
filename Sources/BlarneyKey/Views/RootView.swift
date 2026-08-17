@@ -157,7 +157,7 @@ struct RootView: View {
     /// Status, not chrome: a pearl plate with a hairline, no shadow.
     private var statusBox: some View {
         VStack(spacing: 5) {
-            row("Hotkey", store.settings.binding.shortLabel)
+            row("Hotkey", store.settings.bindingLabel)
             row("Insertion", store.settings.insertionMode == .paste ? "Paste" : "Type")
             row("Cleanup", cleanupState)
             row("Speech model", modelReady ? "Ready" : "Missing")

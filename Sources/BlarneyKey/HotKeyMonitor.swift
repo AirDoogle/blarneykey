@@ -1,11 +1,13 @@
 import AppKit
 
-/// Watches for the push-to-talk key and reports presses, releases, double-taps and Escape.
+/// Watches for any of the push-to-talk keys and reports presses, releases, double-taps
+/// and Escape.
 ///
 /// Modifier keys arrive as `.flagsChanged` events that say nothing about direction, so
-/// direction comes from the device-dependent bit in the raw flags. Global monitors need
-/// Accessibility permission; the local monitor covers the case where our own window has
-/// focus, which the global one never sees.
+/// direction comes from the device-dependent bit in the raw flags. Ordinary keys arrive
+/// as `.keyDown` / `.keyUp`. Global monitors need Accessibility permission; the local
+/// monitor covers the case where our own window has focus, which the global one never
+/// sees.
 final class HotKeyMonitor {
     var onPress: () -> Void = {}
     var onRelease: () -> Void = {}
@@ -17,10 +19,14 @@ final class HotKeyMonitor {
 
     private var monitors: [Any] = []
     private var lastReleasedAt: Date?
-    private var isDown = false
+    /// Which key is currently held. Tracking the specific key, rather than a bare flag,
+    /// stops one Blarney key's release from ending a dictation another one started.
+    private var heldKey: KeyBinding?
 
-    var binding: KeyBinding = .default {
-        didSet { if binding != oldValue { isDown = false } }
+    /// Every key that can start dictation. Different keyboards have different spare keys,
+    /// so an external board and the built-in one can each have their own.
+    var bindings: [KeyBinding] = [.default] {
+        didSet { if bindings != oldValue { heldKey = nil } }
     }
 
     func start() {
@@ -41,37 +47,42 @@ final class HotKeyMonitor {
     func stop() {
         monitors.forEach(NSEvent.removeMonitor)
         monitors.removeAll()
-        isDown = false
+        heldKey = nil
     }
 
     var hasAccessibilityPermission: Bool {
         AXIsProcessTrusted()
     }
 
+    private func binding(forKeyCode code: UInt16, modifier: Bool) -> KeyBinding? {
+        bindings.first { $0.keyCode == code && $0.isModifier == modifier }
+    }
+
     private func handle(_ event: NSEvent) {
         switch event.type {
         case .keyDown:
-            // Escape always cancels, whatever the hotkey is.
+            // Escape always cancels, whatever the keys are.
             if event.keyCode == 53, !event.isARepeat { onEscape() }
             // Holding an ordinary key fires keyDown over and over; only the first counts.
-            if !binding.isModifier, event.keyCode == binding.keyCode, !event.isARepeat {
-                press()
+            if !event.isARepeat, let key = binding(forKeyCode: event.keyCode, modifier: false) {
+                press(key)
             }
         case .keyUp:
-            if !binding.isModifier, event.keyCode == binding.keyCode {
-                release()
+            if let key = binding(forKeyCode: event.keyCode, modifier: false) {
+                release(key)
             }
         case .flagsChanged:
-            guard binding.isModifier, event.keyCode == binding.keyCode else { return }
-            if (event.modifierFlags.rawValue & binding.mask) != 0 { press() } else { release() }
+            guard let key = binding(forKeyCode: event.keyCode, modifier: true) else { return }
+            if (event.modifierFlags.rawValue & key.mask) != 0 { press(key) } else { release(key) }
         default:
             return
         }
     }
 
-    private func press() {
-        guard !isDown else { return }
-        isDown = true
+    private func press(_ key: KeyBinding) {
+        // Ignore a second key pressed while the first is still held.
+        guard heldKey == nil else { return }
+        heldKey = key
         if let last = lastReleasedAt, Date().timeIntervalSince(last) < doubleTapWindow {
             lastReleasedAt = nil
             onDoubleTap()
@@ -80,9 +91,10 @@ final class HotKeyMonitor {
         }
     }
 
-    private func release() {
-        guard isDown else { return }
-        isDown = false
+    private func release(_ key: KeyBinding) {
+        // Only the key that started this dictation can end it.
+        guard heldKey == key else { return }
+        heldKey = nil
         lastReleasedAt = Date()
         onRelease()
     }

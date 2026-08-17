@@ -19,9 +19,12 @@ struct SettingsView: View {
             privacySection
         }
         .sheet(isPresented: $capturingKey) {
-            KeyCaptureSheet(current: store.settings.binding) { binding in
-                store.settings.binding = binding
-                store.save()
+            KeyCaptureSheet(current: store.settings.primaryBinding,
+                            existing: store.settings.bindings) { binding in
+                if !store.settings.bindings.contains(binding) {
+                    store.settings.bindings.append(binding)
+                    store.save()
+                }
                 capturingKey = false
             } onCancel: {
                 capturingKey = false
@@ -32,7 +35,19 @@ struct SettingsView: View {
     // MARK: - Appearance
 
     private var appearanceSection: some View {
-        Section_(label: "APPEARANCE", index: 1) {
+        Section_(label: "GENERAL", index: 1) {
+            Row(title: "Start at login", detail: LoginItem.statusDescription) {
+                Toggle("", isOn: Binding(
+                    get: { store.settings.launchAtLogin },
+                    set: { wanted in
+                        // Show what macOS actually did, not what was asked for.
+                        store.settings.launchAtLogin = LoginItem.set(wanted)
+                        store.save()
+                    }
+                ))
+                .labelsHidden()
+            }
+            RowDivider()
             Row(title: "Theme", detail: "Dark tiles stay dark in both, by design.") {
                 Picker("", selection: binding(\.appearance)) {
                     ForEach(AppearanceMode.allCases) { Text($0.label).tag($0) }
@@ -48,55 +63,29 @@ struct SettingsView: View {
     private var hotkeySection: some View {
         Section_(label: "BLARNEYKEY", index: 2) {
             Row(
-                title: "Blarney key (dictation hotkey)",
+                title: "Your Blarney keys",
                 detail: store.settings.doubleTapToLock
-                    ? "Hold to talk, or double-tap to lock dictation on. Tap again, press Escape, or click stop on the pill."
-                    : "Hold to talk."
+                    ? "Hold any of them to talk, or double-tap to lock dictation on. Tap again, press Escape, or click stop on the pill."
+                    : "Hold any of them to talk."
             ) {
-                Picker("", selection: binding(\.binding)) {
-                    if store.settings.binding.preset == nil {
-                        SwiftUI.Section("Recorded") {
-                            Text(store.settings.binding.label).tag(store.settings.binding)
-                        }
-                    }
-                    SwiftUI.Section("Right-hand modifiers") {
-                        ForEach(HotKey.rightHand) { Text($0.label).tag($0.binding) }
-                    }
-                    SwiftUI.Section("Left-hand modifiers") {
-                        ForEach(HotKey.leftHand) { Text($0.label).tag($0.binding) }
-                    }
-                    SwiftUI.Section {
-                        ForEach(HotKey.special) { Text($0.label).tag($0.binding) }
-                    }
-                    SwiftUI.Section("Function keys") {
-                        ForEach(HotKey.functionKeys) { Text($0.label).tag($0.binding) }
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 178)
+                Button("Add a key") { capturingKey = true }
+                    .buttonStyle(PillButtonStyle())
             }
 
-            if let caveat = store.settings.binding.caveat {
-                Note(kind: .warn, text: caveat)
+            ForEach(Array(store.settings.bindings.enumerated()), id: \.element) { index, key in
+                RowDivider()
+                keyRow(key, index: index)
+            }
+
+            if store.settings.bindings.isEmpty {
+                RowDivider()
+                Note(kind: .warn,
+                     text: "No keys set up, so nothing starts dictation. Add one, or use Start dictation in the menu bar.")
             }
 
             RowDivider()
-            Row(
-                title: "Use any key",
-                detail: "Press a spare key on your keyboard and use that instead. Keys needed for typing are refused."
-            ) {
-                HStack(spacing: Theme.Space.xs) {
-                    if store.settings.binding.preset == nil {
-                        Button("Reset") {
-                            store.settings.binding = .default
-                            store.save()
-                        }
-                        .buttonStyle(UtilityButtonStyle())
-                    }
-                    Button("Record a key") { capturingKey = true }
-                        .buttonStyle(PillButtonStyle())
-                }
-            }
+            Note(kind: .plain,
+                 text: "More than one is useful when your keyboards differ: a spare key on an external board, and something like Right \u{2325} on the built-in one.")
 
             RowDivider()
             toggle("Double-tap to lock on",
@@ -109,6 +98,55 @@ struct SettingsView: View {
             RowDivider()
             toggle("Play start and stop sounds", detail: nil, path: \.playSounds)
         }
+    }
+
+    /// One configured key: what it is, why it might misbehave, and how to remove it.
+    private func keyRow(_ key: KeyBinding, index: Int) -> some View {
+        HStack(spacing: Theme.Space.sm) {
+            Text(key.shortLabel)
+                .font(Theme.Text.captionStrong())
+                .foregroundStyle(Theme.Colour.ink)
+                .padding(.horizontal, Theme.Space.sm)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Theme.Colour.parchment))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(key.label)
+                    .font(Theme.Text.body())
+                    .foregroundStyle(Theme.Colour.ink)
+                if let caveat = key.caveat {
+                    Text(caveat)
+                        .font(Theme.Text.caption())
+                        .foregroundStyle(Theme.Colour.warn)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: Theme.Space.sm)
+
+            if index == 0 {
+                Text("shown in the app")
+                    .font(Theme.Text.caption())
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+            }
+
+            Button {
+                store.settings.bindings.removeAll { $0 == key }
+                store.save()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+            }
+            .buttonStyle(PressableButtonStyle())
+            .disabled(store.settings.bindings.count <= 1)
+            .help(store.settings.bindings.count <= 1
+                  ? "Keep at least one key"
+                  : "Remove this key")
+        }
+        .padding(.horizontal, Theme.Space.md)
+        .padding(.vertical, Theme.Space.sm)
+        .frame(minHeight: 44)
     }
 
     // MARK: - Insertion

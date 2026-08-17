@@ -18,7 +18,9 @@ inference locally.
 
 ## What it does
 
-- **Push to talk** on any of 16 preset keys — left and right ⌘ ⌥ ⌃ ⇧, fn, or F13–F19.
+- **Push to talk** on any of 16 preset keys: left and right ⌘ ⌥ ⌃ ⇧, fn, or F13–F19.
+  **Set up as many as you like** — one keyboard's spare key is another keyboard's missing
+  key, so an external board and the built-in one can each have their own.
   Hold to dictate, or double-tap to lock it on for longer stretches, then tap again,
   press Escape, or hit stop on the pill.
 - **Or record your own key.** Press a spare key on an external keyboard and use that.
@@ -147,7 +149,14 @@ tries to fetch them from Hugging Face at runtime and fails on a restricted netwo
 
 ## Start at login
 
-System Settings → General → Login Items → **+** → `/Applications/BlarneyKey.app`.
+Settings → General → **Start at login**. It registers the app with macOS through
+`SMAppService`, so it also appears in System Settings → General → Login Items, where you
+can revoke it. The app checks the real state at launch rather than trusting its own
+setting, so switching it off there is reflected next time you open it.
+
+There is nothing to configure for waking from sleep: waking does not quit anything, so
+BlarneyKey is still running. A restart is the only thing that stops it, and that is what
+this covers.
 
 ## Stable signing
 

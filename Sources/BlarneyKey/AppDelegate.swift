@@ -21,6 +21,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildMenu()
 
         dictation.requestMicrophoneAccess()
+        // The user can switch the login item off in System Settings without telling us,
+        // so trust macOS over our own stored flag.
+        if store.settings.launchAtLogin != LoginItem.isEnabled {
+            store.settings.launchAtLogin = LoginItem.isEnabled
+            store.save()
+        }
         wireHotKey()
         observeState()
         observeAppearance()
@@ -49,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Hotkey wiring
 
     private func wireHotKey() {
-        hotKey.binding = store.settings.binding
+        hotKey.bindings = store.settings.bindings
         hotKey.onPress = { [weak self] in
             guard let self else { return }
             // In locked mode a tap is the stop signal.
@@ -71,10 +77,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Keep the monitor in step when the hotkey is changed in Settings.
         store.$settings
-            .map(\.binding)
+            .map(\.bindings)
             .removeDuplicates()
-            .sink { [weak self] key in
-                self?.hotKey.binding = key
+            .sink { [weak self] keys in
+                self?.hotKey.bindings = keys
                 self?.buildMenu()
             }
             .store(in: &cancellables)
@@ -143,7 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .transcribing:
             menu.addItem(disabled("Transcribing…"))
         case .idle:
-            menu.addItem(disabled("Hold \(store.settings.binding.shortLabel) to talk"))
+            menu.addItem(disabled("Hold \(store.settings.bindingLabel) to talk"))
         }
 
         if !permissions.hasAccessibility {
@@ -158,8 +164,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(toggle)
 
         // Always reachable with the mouse, so a badly chosen key is one click from fixed.
-        if store.settings.binding.preset == nil {
-            menu.addItem(item("Reset hotkey to \(KeyBinding.default.shortLabel)",
+        if store.settings.bindings != [.default] {
+            menu.addItem(item("Reset to one key: \(KeyBinding.default.shortLabel)",
                               #selector(resetHotKey)))
         }
 
@@ -195,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func resetHotKey() {
-        store.settings.binding = .default
+        store.settings.bindings = [.default]
         store.writeNow()
         buildMenu()
     }

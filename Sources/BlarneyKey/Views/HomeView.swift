@@ -35,7 +35,7 @@ struct HomeView: View {
                 .foregroundStyle(Theme.Colour.onDark)
                 .reveal(1, aboveFold: true, blurred: true)
 
-            Text("\(store.settings.binding.shortLabel) is your Blarney key. Hold it, talk, and the words land wherever your cursor is.")
+            Text("\(store.settings.bindingLabel) is your Blarney key. Hold it, talk, and the words land wherever your cursor is.")
                 .font(Theme.Text.lead())
                 .tracking(Theme.Text.Track.body)
                 .foregroundStyle(Theme.Colour.bodyMuted)
@@ -43,7 +43,7 @@ struct HomeView: View {
                 .reveal(2, aboveFold: true, blurred: true)
 
             HStack(spacing: Theme.Space.sm) {
-                Text(store.settings.binding.shortLabel)
+                Text(store.settings.bindingLabel)
                     .font(Theme.Text.captionStrong())
                     .foregroundStyle(Theme.Colour.onDark)
                     .padding(.horizontal, Theme.Space.sm)
@@ -159,7 +159,7 @@ struct HomeView: View {
             }
 
             if filtered.isEmpty {
-                Text("Nothing here yet. Hold \(store.settings.binding.shortLabel) and say something.")
+                Text("Nothing here yet. Hold \(store.settings.bindingLabel) and say something.")
                     .font(Theme.Text.body())
                     .foregroundStyle(Theme.Colour.inkMuted48)
                     .padding(.vertical, Theme.Space.lg)

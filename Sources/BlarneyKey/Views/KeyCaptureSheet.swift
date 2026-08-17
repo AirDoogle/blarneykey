@@ -8,6 +8,9 @@ import SwiftUI
 /// have another job are allowed with a warning, since only you know whether you use F5.
 struct KeyCaptureSheet: View {
     let current: KeyBinding
+    /// Already configured, so the sheet can say "you have that one" rather than
+    /// silently doing nothing when it is added twice.
+    var existing: [KeyBinding] = []
     let onUse: (KeyBinding) -> Void
     let onCancel: () -> Void
 
@@ -16,6 +19,11 @@ struct KeyCaptureSheet: View {
 
     private var risk: KeyNames.Risk? {
         captured.map { KeyNames.risk(for: $0.keyCode) }
+    }
+
+    private var isDuplicate: Bool {
+        guard let captured else { return false }
+        return existing.contains(captured)
     }
 
     var body: some View {
@@ -33,10 +41,19 @@ struct KeyCaptureSheet: View {
 
             keyWell
 
-            if let risk, let captured {
+            if let captured, isDuplicate {
+                Note(kind: .warn, text: "\(captured.label) is already one of your Blarney keys.")
+                    .cardSurface()
+            } else if let risk, let captured {
                 message(for: risk, binding: captured).cardSurface()
-            } else {
+            } else if existing.isEmpty {
                 Note(kind: .plain, text: "Currently using \(current.label).").cardSurface()
+            } else {
+                Note(kind: .plain,
+                     text: existing.count == 1
+                        ? "You have one Blarney key: \(existing[0].label)."
+                        : "You have \(existing.count) Blarney keys set up.")
+                    .cardSurface()
             }
 
             HStack(spacing: Theme.Space.xs) {
@@ -46,12 +63,12 @@ struct KeyCaptureSheet: View {
                 Spacer(minLength: Theme.Space.sm)
                 Button("Cancel", action: cancel)
                     .buttonStyle(PillButtonStyle(prominent: false))
-                Button(risk == .risky ? "Use anyway" : "Use this key") {
+                Button(risk == .risky ? "Add anyway" : "Add this key") {
                     if let captured { onUse(captured) }
                 }
                 .buttonStyle(PillButtonStyle())
                 .keyboardShortcut(.defaultAction)
-                .disabled(captured == nil || risk == .blocked)
+                .disabled(captured == nil || risk == .blocked || isDuplicate)
             }
         }
         .padding(Theme.Space.lg)

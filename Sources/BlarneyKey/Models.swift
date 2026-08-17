@@ -303,8 +303,12 @@ enum AppearanceMode: String, Codable, CaseIterable, Identifiable {
 }
 
 struct Settings: Codable {
-    var binding: KeyBinding = .default
+    /// Every key that starts dictation. Any of them works; the first is the one shown
+    /// in the interface when a single name is needed.
+    var bindings: [KeyBinding] = [.default]
     var appearance: AppearanceMode = .system
+    /// Start BlarneyKey when you log in, so it is there after a restart.
+    var launchAtLogin = false
     var insertionMode: InsertionMode = .paste
     var language: String? = "en"
     var playSounds = true
@@ -331,8 +335,22 @@ struct Settings: Codable {
 
     init() {}
 
+    var primaryBinding: KeyBinding { bindings.first ?? .default }
+
+    /// "Right ⌥", or "Right ⌥ or F13" when more than one key is set up.
+    var bindingLabel: String {
+        let names = bindings.map(\.shortLabel)
+        switch names.count {
+        case 0: return KeyBinding.default.shortLabel
+        case 1: return names[0]
+        case 2: return "\(names[0]) or \(names[1])"
+        default: return "\(names[0]) or \(names.count - 1) others"
+        }
+    }
+
     private enum CodingKeys: String, CodingKey {
-        case binding, hotKey, insertionMode, appearance, language, playSounds, showPill
+        case bindings, binding, hotKey, insertionMode, appearance, launchAtLogin
+        case language, playSounds, showPill
         case doubleTapToLock
         case minimumDuration, allowAllApps, cleanupEverywhere, typingWPM
         case modelPath, modelPrefix, cliPath
@@ -344,16 +362,20 @@ struct Settings: Codable {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
-        if let binding = try? c.decode(KeyBinding.self, forKey: .binding) {
-            self.binding = binding
+        // Three generations of this field, oldest last. A settings file from any of them
+        // has to survive, because losing it would take the whole history with it.
+        if let list = try? c.decode([KeyBinding].self, forKey: .bindings), !list.isEmpty {
+            bindings = list
+        } else if let single = try? c.decode(KeyBinding.self, forKey: .binding) {
+            bindings = [single]
         } else if let legacy = try? c.decode(HotKey.self, forKey: .hotKey) {
-            // Pre-capture versions stored a preset name.
-            self.binding = legacy.binding
+            bindings = [legacy.binding]
         }
 
         insertionMode = try c.decodeIfPresent(InsertionMode.self, forKey: .insertionMode)
             ?? insertionMode
         appearance = try c.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? appearance
+        launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? launchAtLogin
         language = try c.decodeIfPresent(String.self, forKey: .language) ?? language
         playSounds = try c.decodeIfPresent(Bool.self, forKey: .playSounds) ?? playSounds
         showPill = try c.decodeIfPresent(Bool.self, forKey: .showPill) ?? showPill
@@ -372,9 +394,10 @@ struct Settings: Codable {
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(binding, forKey: .binding)
+        try c.encode(bindings, forKey: .bindings)
         try c.encode(insertionMode, forKey: .insertionMode)
         try c.encode(appearance, forKey: .appearance)
+        try c.encode(launchAtLogin, forKey: .launchAtLogin)
         try c.encodeIfPresent(language, forKey: .language)
         try c.encode(playSounds, forKey: .playSounds)
         try c.encode(showPill, forKey: .showPill)
