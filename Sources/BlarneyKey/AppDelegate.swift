@@ -126,7 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .transcribing:
             menu.addItem(disabled("Transcribing…"))
         case .idle:
-            menu.addItem(disabled("Hold \(store.settings.binding.shortLabel) to dictate"))
+            menu.addItem(disabled("Hold \(store.settings.binding.shortLabel) to talk"))
         }
 
         if !permissions.hasAccessibility {
@@ -193,11 +193,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingView(rootView: RootView(store: store, dictation: dictation))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 980, height: 700),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
         window.title = "BlarneyKey"
-        window.titlebarAppearsTransparent = true
+        // Opaque, and not full-size content: a transparent titlebar over a scrolling
+        // view leaves the title sitting on top of the content as it passes underneath.
+        window.titlebarAppearsTransparent = false
         window.contentView = hosting
         window.isReleasedWhenClosed = false
         window.center()

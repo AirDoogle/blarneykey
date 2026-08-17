@@ -1,6 +1,6 @@
 # BlarneyKey
 
-**The gift of the gab, on your Mac.**
+**The gift of the gab, without the trip to Blarney.**
 
 Local push-to-talk dictation for macOS. Hold a key, speak, let go — the words appear
 wherever your cursor is. No account, no network, no subscription, no per-minute pricing.
@@ -39,7 +39,8 @@ inference locally.
   result that's wildly longer or shorter than the input, which is how you catch the model
   *answering* your dictation instead of tidying it.
 - **Dashboard** — words, sessions, time saved against a typing baseline you set, speaking
-  speed, day streak, and a searchable history grouped by day with per-app filters.
+  speed, day streak, and a history grouped by day with per-app filters and a copy button
+  on every line.
 - **Nothing is ever lost.** If a paste is blocked, the text goes to the clipboard and the
   menu bar tells you why.
 

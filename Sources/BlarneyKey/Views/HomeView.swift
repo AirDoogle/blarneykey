@@ -35,7 +35,7 @@ struct HomeView: View {
                 .foregroundStyle(Theme.Colour.onDark)
                 .reveal(1, aboveFold: true, blurred: true)
 
-            Text("Hold \(store.settings.binding.shortLabel) and talk. It types where you're focused, privately, on your Mac.")
+            Text("Hold \(store.settings.binding.shortLabel) and talk. The words land wherever your cursor is, and nothing leaves the Mac.")
                 .font(Theme.Text.lead())
                 .tracking(Theme.Text.Track.body)
                 .foregroundStyle(Theme.Colour.bodyMuted)
@@ -159,7 +159,7 @@ struct HomeView: View {
             }
 
             if filtered.isEmpty {
-                Text("Nothing yet. Hold \(store.settings.binding.shortLabel) and say something.")
+                Text("Nothing here yet. Hold \(store.settings.binding.shortLabel) and say something.")
                     .font(Theme.Text.body())
                     .foregroundStyle(Theme.Colour.inkMuted48)
                     .padding(.vertical, Theme.Space.lg)
@@ -344,9 +344,39 @@ private struct SessionRow: View {
                 }
             }
             Spacer(minLength: 0)
+
+            CopyButton(text: session.text)
+                .padding(.top, 1)
         }
         .padding(.horizontal, Theme.Space.md)
         .padding(.vertical, Theme.Space.sm)
+    }
+}
+
+/// Copies a transcript back to the clipboard. Confirms in place rather than with a
+/// notification, since the click and the feedback belong in the same spot.
+private struct CopyButton: View {
+    let text: String
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            withAnimation(Theme.Motion.interaction) { copied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                withAnimation(Theme.Motion.interaction) { copied = false }
+            }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(copied ? Theme.Colour.ok : Theme.Colour.inkMuted48)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableButtonStyle())
+        .disabled(text.isEmpty)
+        .help(copied ? "Copied" : "Copy this text")
     }
 }
 

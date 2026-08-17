@@ -87,13 +87,19 @@ struct RootView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Theme.Space.xs) {
-                Image(systemName: "waveform.circle.fill")
-                    .font(.system(size: 19))
-                    .foregroundStyle(Theme.Colour.primary)
-                Text("BlarneyKey")
-                    .font(Theme.Text.tagline())
-                    .tracking(Theme.Text.Track.body)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: Theme.Space.xs) {
+                    Image(systemName: "waveform.circle.fill")
+                        .font(.system(size: 19))
+                        .foregroundStyle(Theme.Colour.primary)
+                    Text("BlarneyKey")
+                        .font(Theme.Text.tagline())
+                        .tracking(Theme.Text.Track.body)
+                }
+                Text("The gift of the gab, without the trip to Blarney.")
+                    .font(Theme.Text.caption())
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, Theme.Space.sm)
             .padding(.top, Theme.Space.xs)
@@ -109,7 +115,33 @@ struct RootView: View {
             .listStyle(.sidebar)
 
             statusBox
+            credit
         }
+    }
+
+    /// Built-by credit. The link is UTM tagged per the Cork AI Consulting tracking doc
+    /// (source blarneykey, medium referral, campaign blarneykey-app, content about-footer)
+    /// so visits from the app are distinguishable from Direct traffic in GA4.
+    private var credit: some View {
+        Link(destination: URL(string:
+            "https://corkaiconsulting.ie/?utm_source=blarneykey&utm_medium=referral&utm_campaign=blarneykey-app&utm_content=about-footer"
+        )!) {
+            HStack(spacing: 4) {
+                Text("Built by")
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+                Text("Cork AI Consulting")
+                    .foregroundStyle(Theme.Colour.primary)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 7, weight: .semibold))
+                    .foregroundStyle(Theme.Colour.primary)
+            }
+            .font(Theme.Text.finePrint())
+            .padding(.horizontal, Theme.Space.sm)
+            .padding(.bottom, Theme.Space.sm)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("corkaiconsulting.ie")
     }
 
     /// Status, not chrome: a pearl plate with a hairline, no shadow.
