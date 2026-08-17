@@ -1,0 +1,12 @@
+# Build output
+.build/
+*.app
+
+# Downloaded speech model — 1.4 GB, fetched by setup.sh
+models/
+.model-download/
+
+# Local state, if anyone runs the app from the project folder
+state.json
+
+.DS_Store
