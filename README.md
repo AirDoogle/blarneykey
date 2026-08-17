@@ -41,6 +41,34 @@ framework for the optional cleanup pass.
 - **Nothing is ever lost.** If a paste is blocked, the text goes to the clipboard and the
   menu bar tells you why.
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AirDoogle/blarneykey/main/install.sh | bash
+```
+
+That checks your Mac, installs the speech engine from Homebrew, downloads the model,
+builds the app, installs it to `/Applications` and opens it. Five to ten minutes, most of
+it the 1.4 GB model download.
+
+Then grant one permission — **System Settings → Privacy & Security → Accessibility** — and
+hold Right ⌘ to talk. The app shows a banner with a button until you do.
+
+**Requirements:** Apple Silicon, macOS 15+, [Homebrew](https://brew.sh), and the Xcode
+command line tools (`xcode-select --install`).
+
+### Why it builds instead of downloading a ready-made app
+
+Apple charges $99 a year for the Developer ID certificate that lets a Mac app be signed and
+notarized. Without one, any prebuilt app downloaded from the internet is quarantined by
+Gatekeeper and refuses to open until you dig through System Settings to allow it — and the
+usual "fix" going round is a command that strips that protection, which is not something you
+should paste on a stranger's say-so.
+
+Building on your own machine avoids the whole problem. Nothing arrives as an untrusted
+binary, so there is nothing to override and no security check to disable. The cost is the
+command line tools and a few minutes of compiling.
+
 ## Requirements
 
 - Apple Silicon Mac (the speech model runs on the Neural Engine)
@@ -48,13 +76,13 @@ framework for the optional cleanup pass.
 - [Homebrew](https://brew.sh) and the Xcode command line tools (`xcode-select --install`)
 - About 1.5 GB of disk for the speech model
 
-## Setup on a new Mac
+## Manual setup
 
 ```bash
 git clone https://github.com/AirDoogle/blarneykey.git ~/Developer/blarneykey
 cd ~/Developer/blarneykey
 ./setup.sh
-open ~/Applications/BlarneyKey.app
+open /Applications/BlarneyKey.app
 ```
 
 `setup.sh` installs `whisperkit-cli` from Homebrew, downloads the model from Hugging Face
@@ -116,7 +144,7 @@ tries to fetch them from Hugging Face at runtime and fails on a restricted netwo
 
 ## Start at login
 
-System Settings → General → Login Items → **+** → `~/Applications/BlarneyKey.app`.
+System Settings → General → Login Items → **+** → `/Applications/BlarneyKey.app`.
 
 ## Rebuilding
 

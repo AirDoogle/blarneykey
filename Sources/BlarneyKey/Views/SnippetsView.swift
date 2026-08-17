@@ -5,36 +5,38 @@ struct SnippetsView: View {
     @State private var editing: Snippet?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Snippets").font(.largeTitle.weight(.bold))
-                    Text("Say a trigger phrase and BlarneyKey pastes the full text instead. For example, say \"weekly business review\".")
-                        .font(.callout).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+        Page(
+            title: "Snippets",
+            lead: "Say a trigger phrase and BlarneyKey pastes the full text instead. For example, say \"weekly business review\"."
+        ) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                HStack {
+                    Text("SNIPPETS (\(store.snippets.count))").eyebrow()
+                    Spacer()
+                    Button("New snippet") {
+                        editing = Snippet(trigger: "", expansion: "")
+                    }
+                    .buttonStyle(PillButtonStyle(prominent: false))
                 }
 
-                Button {
-                    editing = Snippet(trigger: "", expansion: "")
-                } label: {
-                    Label("New snippet", systemImage: "plus")
-                }
-                .buttonStyle(.borderless)
-
-                if store.snippets.isEmpty {
-                    Text("No snippets yet.")
-                        .font(.callout).foregroundStyle(.secondary)
-                } else {
-                    VStack(spacing: 8) {
-                        ForEach(store.snippets) { snippet in
-                            row(snippet)
-                        }
+                VStack(spacing: 0) {
+                    if store.snippets.isEmpty {
+                        Note(kind: .plain, text: "No snippets yet.")
+                    }
+                    ForEach(Array(store.snippets.enumerated()), id: \.element.id) { index, snippet in
+                        if index > 0 { RowDivider() }
+                        row(snippet)
                     }
                 }
+                .cardSurface()
             }
-            .padding(20)
+            .reveal(1)
+
+            Section_(label: "HOW MATCHING WORKS", index: 2) {
+                Note(kind: .plain,
+                     text: "The whole utterance has to be the trigger phrase, so a trigger buried in a sentence will not swallow it. Case, punctuation and extra spaces are ignored.")
+            }
         }
-        .navigationTitle("Snippets")
         .sheet(item: $editing) { snippet in
             SnippetEditor(snippet: snippet) { saved in
                 store.upsert(saved)
@@ -46,26 +48,43 @@ struct SnippetsView: View {
     }
 
     private func row(_ snippet: Snippet) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "quote.opening").foregroundStyle(.secondary).font(.caption)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(snippet.trigger).font(.callout.weight(.semibold))
-                Text(snippet.expansion.split(separator: "\n").first.map(String.init) ?? "")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1)
+        Button {
+            editing = snippet
+        } label: {
+            HStack(alignment: .top, spacing: Theme.Space.sm) {
+                Image(systemName: "text.quote")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(snippet.trigger)
+                        .font(Theme.Text.bodyStrong())
+                        .tracking(Theme.Text.Track.body)
+                        .foregroundStyle(Theme.Colour.ink)
+                    Text(snippet.expansion.split(separator: "\n").first.map(String.init) ?? "")
+                        .font(Theme.Text.caption())
+                        .foregroundStyle(Theme.Colour.inkMuted48)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: Theme.Space.sm)
+
+                Button {
+                    store.remove(snippet)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.Colour.inkMuted48)
+                }
+                .buttonStyle(PressableButtonStyle())
             }
-            Spacer()
-            Button {
-                store.remove(snippet)
-            } label: {
-                Image(systemName: "trash").foregroundStyle(.secondary)
-            }
-            .buttonStyle(.borderless)
+            .padding(.horizontal, Theme.Space.md)
+            .padding(.vertical, Theme.Space.sm)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
-        .padding(12)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
-        .contentShape(Rectangle())
-        .onTapGesture { editing = snippet }
+        .buttonStyle(.plain)
     }
 }
 
@@ -75,42 +94,44 @@ private struct SnippetEditor: View {
     let onCancel: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
             Text(snippet.trigger.isEmpty ? "New snippet" : "Edit snippet")
-                .font(.title3.weight(.semibold))
+                .font(Theme.Text.displayMd())
+                .tracking(Theme.Text.Track.display)
+                .foregroundStyle(Theme.Colour.ink)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("TRIGGER PHRASE")
-                    .font(.caption.weight(.semibold)).tracking(1)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("TRIGGER PHRASE").eyebrow()
                 TextField("weekly business review", text: $snippet.trigger)
                     .textFieldStyle(.roundedBorder)
+                    .font(Theme.Text.body())
                 Text("Matching ignores case and punctuation.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(Theme.Text.caption())
+                    .foregroundStyle(Theme.Colour.inkMuted48)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("EXPANSION")
-                    .font(.caption.weight(.semibold)).tracking(1)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("EXPANSION").eyebrow()
                 TextEditor(text: $snippet.expansion)
-                    .font(.body.monospaced())
-                    .frame(minHeight: 180)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6).stroke(.quaternary)
-                    )
+                    .font(.system(size: 12, design: .monospaced))
+                    .frame(minHeight: 190)
+                    .padding(4)
+                    .cardSurface(Theme.Colour.canvas, radius: Theme.Radius.sm)
             }
 
-            HStack {
+            HStack(spacing: Theme.Space.xs) {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .buttonStyle(PillButtonStyle(prominent: false))
                 Button("Save") { onSave(snippet) }
+                    .buttonStyle(PillButtonStyle())
                     .keyboardShortcut(.defaultAction)
                     .disabled(snippet.trigger.trimmingCharacters(in: .whitespaces).isEmpty
                               || snippet.expansion.isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 480)
+        .padding(Theme.Space.lg)
+        .frame(width: 500)
+        .background(Theme.Colour.parchment)
     }
 }

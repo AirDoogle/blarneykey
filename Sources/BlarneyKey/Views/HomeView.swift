@@ -9,58 +9,60 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                hero
-                statGrid
-                activity
+            // Tiles stack edge to edge with no gap. The surface change is the divider —
+            // no rules, no borders and no shadows between sections.
+            VStack(spacing: 0) {
+                heroTile
+                statsTile
+                activityTile
             }
-            .padding(20)
         }
+        .background(Theme.Colour.canvas)
         .navigationTitle("BlarneyKey")
     }
 
-    // MARK: - Hero
+    // MARK: - Hero (dark tile)
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private var heroTile: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
             Text("100% ON-DEVICE")
-                .font(.caption.weight(.semibold))
-                .tracking(1.2)
-                .foregroundStyle(.white.opacity(0.7))
+                .eyebrow(onDark: true)
+                .reveal(0, aboveFold: true)
 
             Text(greeting)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(.white)
+                .font(Theme.Text.heroDisplay())
+                .tracking(Theme.Text.Track.hero)
+                .foregroundStyle(Theme.Colour.onDark)
+                .reveal(1, aboveFold: true, blurred: true)
 
-            Text("Hold \(store.settings.binding.shortLabel) and talk. It types where you're focused — privately, on your Mac.")
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.85))
+            Text("Hold \(store.settings.binding.shortLabel) and talk. It types where you're focused, privately, on your Mac.")
+                .font(Theme.Text.lead())
+                .tracking(Theme.Text.Track.body)
+                .foregroundStyle(Theme.Colour.bodyMuted)
                 .fixedSize(horizontal: false, vertical: true)
+                .reveal(2, aboveFold: true, blurred: true)
 
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.Space.sm) {
                 Text(store.settings.binding.shortLabel)
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(.white.opacity(0.2), in: Capsule())
-                    .foregroundStyle(.white)
+                    .font(Theme.Text.captionStrong())
+                    .foregroundStyle(Theme.Colour.onDark)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Theme.Colour.tile2))
+                    .overlay(Capsule().strokeBorder(Theme.Colour.onDarkFaint.opacity(0.3)))
+
                 Text(store.settings.doubleTapToLock
                      ? "hold to dictate · double-tap to lock on"
                      : "hold to dictate")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .font(Theme.Text.caption())
+                    .foregroundStyle(Theme.Colour.onDarkFaint)
             }
-            .padding(.top, 2)
+            .padding(.top, Theme.Space.xxs)
+            .reveal(3, aboveFold: true)
         }
-        .padding(20)
+        .padding(Theme.Space.section)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color(red: 0.16, green: 0.13, blue: 0.32),
-                         Color(red: 0.36, green: 0.26, blue: 0.68)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 14)
-        )
+        .background(Theme.Colour.tile1)
     }
 
     private var greeting: String {
@@ -70,95 +72,114 @@ struct HomeView: View {
         return "Good \(part), \(name)"
     }
 
-    // MARK: - Stats
+    // MARK: - Stats (light tile)
 
-    private var statGrid: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
+    private var statsTile: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            Text("THIS WEEK").eyebrow().reveal(0)
+
+            HStack(alignment: .top, spacing: Theme.Space.md) {
                 StatCard(
-                    title: "TIME SAVED",
+                    label: "TIME SAVED",
                     value: Format.hours(stats.timeSaved(typingWPM: store.settings.typingWPM)),
-                    caption: "this week",
-                    footnote: "vs typing at \(Int(store.settings.typingWPM)) wpm",
-                    symbol: "hourglass",
-                    colors: [Color(red: 0.55, green: 0.36, blue: 0.93),
-                             Color(red: 0.70, green: 0.48, blue: 0.98)]
+                    footnote: "against typing at \(Int(store.settings.typingWPM)) wpm"
                 )
+                .reveal(1)
+
                 StatCard(
-                    title: "SPEAKING SPEED",
+                    label: "SPEAKING SPEED",
                     value: String(format: "%.1f×", stats.speedMultiple(typingWPM: store.settings.typingWPM)),
-                    caption: "this week",
-                    footnote: "faster than typing · ≈\(Int(stats.wordsPerMinute)) wpm",
-                    symbol: "bolt.fill",
-                    colors: [Color(red: 0.90, green: 0.60, blue: 0.28),
-                             Color(red: 0.95, green: 0.72, blue: 0.38)]
+                    footnote: "≈\(Int(stats.wordsPerMinute)) words a minute"
                 )
-            }
-            HStack(spacing: 12) {
+                .reveal(2)
+
                 StatCard(
-                    title: "SESSIONS",
-                    value: "\(stats.sessions)",
-                    caption: "this week",
-                    footnote: stats.streakDays > 0 ? "🔥 \(stats.streakDays)-day streak" : nil,
-                    symbol: "mic",
-                    colors: [Color(red: 0.31, green: 0.46, blue: 0.90),
-                             Color(red: 0.45, green: 0.60, blue: 0.96)]
-                )
-                StatCard(
-                    title: "WORDS",
+                    label: "WORDS",
                     value: Format.count(stats.words),
-                    caption: "this week",
-                    footnote: nil,
-                    symbol: "text.alignleft",
-                    colors: [Color(red: 0.80, green: 0.34, blue: 0.48),
-                             Color(red: 0.88, green: 0.47, blue: 0.58)]
+                    footnote: stats.sessions == 1 ? "across 1 session" : "across \(stats.sessions) sessions"
                 )
+                .reveal(3)
+            }
+
+            HStack(alignment: .top, spacing: Theme.Space.md) {
                 StatCard(
-                    title: "AVG. SESSION",
+                    label: "AVERAGE SESSION",
                     value: Format.seconds(stats.averageSession),
-                    caption: "this week",
-                    footnote: nil,
-                    symbol: "clock",
-                    colors: [Color(red: 0.28, green: 0.62, blue: 0.62),
-                             Color(red: 0.42, green: 0.74, blue: 0.72)]
+                    footnote: "of speaking per go"
                 )
+                .reveal(4)
+
+                StatCard(
+                    label: "STREAK",
+                    value: stats.streakDays > 0 ? "\(stats.streakDays) days" : "—",
+                    footnote: stats.streakDays > 0 ? "consecutive days dictating" : "no streak yet"
+                )
+                .reveal(5)
+
+                StatCard(
+                    label: "TODAY",
+                    value: "\(store.sessionsToday)",
+                    footnote: store.sessionsToday == 1 ? "session so far" : "sessions so far"
+                )
+                .reveal(6)
             }
         }
+        .padding(Theme.Space.section)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Colour.canvas)
     }
 
-    // MARK: - Recent activity
+    // MARK: - Activity (parchment tile)
 
-    private var activity: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Recent activity").font(.title3.weight(.semibold))
+    private var activityTile: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Recent activity")
+                    .font(Theme.Text.displayMd())
+                    .tracking(Theme.Text.Track.display)
+                    .foregroundStyle(Theme.Colour.ink)
                 Spacer()
                 Text("\(store.sessions.count) total")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(Theme.Text.caption())
+                    .foregroundStyle(Theme.Colour.inkMuted48)
             }
+            .reveal(0)
 
             if !store.appsInHistory.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: Theme.Space.xs) {
                         chip("All", selected: appFilter == nil) { appFilter = nil }
                         ForEach(store.appsInHistory.prefix(8), id: \.self) { name in
                             chip(name, selected: appFilter == name) { appFilter = name }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
+                .reveal(1)
             }
 
             if filtered.isEmpty {
                 Text("Nothing yet. Hold \(store.settings.binding.shortLabel) and say something.")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .padding(.vertical, 12)
+                    .font(Theme.Text.body())
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+                    .padding(.vertical, Theme.Space.lg)
+                    .reveal(2)
             } else {
-                ForEach(days, id: \.self) { day in
-                    DayGroup(day: day, sessions: grouped[day] ?? [],
-                             expanded: day == Calendar.current.startOfDay(for: Date()))
+                VStack(spacing: Theme.Space.xs) {
+                    ForEach(Array(days.enumerated()), id: \.element) { offset, day in
+                        DayGroup(
+                            day: day,
+                            sessions: grouped[day] ?? [],
+                            startsOpen: offset == 0
+                        )
+                        .reveal(min(offset + 2, 5))
+                    }
                 }
             }
         }
+        .padding(Theme.Space.section)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Colour.parchment)
     }
 
     private var filtered: [Session] {
@@ -172,47 +193,112 @@ struct HomeView: View {
 
     private var days: [Date] { grouped.keys.sorted(by: >) }
 
+    /// The configurator option chip: pill, white, ink text. Selecting upgrades the ring to
+    /// 2pt Focus Blue rather than filling the chip with colour.
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.caption)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(selected ? AnyShapeStyle(.tint.opacity(0.18))
-                                     : AnyShapeStyle(.quaternary.opacity(0.6)),
-                            in: Capsule())
-                .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                .font(Theme.Text.caption())
+                .foregroundStyle(Theme.Colour.ink)
+                .padding(.horizontal, Theme.Space.sm)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Theme.Colour.canvas))
+                .overlay(
+                    Capsule().strokeBorder(
+                        selected ? Theme.Colour.primaryFocus : Theme.Colour.hairline,
+                        lineWidth: selected ? 2 : 1
+                    )
+                )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 }
 
-// MARK: - Pieces
+// MARK: - Stat card
+
+/// The store utility card: white, 18pt radius, 1pt hairline, 24pt padding, no shadow.
+/// The number carries the weight through type, not through a coloured fill.
+struct StatCard: View {
+    let label: String
+    let value: String
+    let footnote: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xxs) {
+            Text(label).eyebrow()
+
+            Text(value)
+                .font(Theme.Text.statNumber())
+                .tracking(Theme.Text.Track.hero)
+                .foregroundStyle(Theme.Colour.ink)
+                .monospacedDigit()
+                .padding(.top, 2)
+
+            if let footnote {
+                Text(footnote)
+                    .font(Theme.Text.caption())
+                    .foregroundStyle(Theme.Colour.inkMuted48)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Space.lg)
+        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+        .cardSurface()
+    }
+}
+
+// MARK: - Activity rows
 
 private struct DayGroup: View {
     let day: Date
     let sessions: [Session]
-    let expanded: Bool
+    let startsOpen: Bool
     @State private var isOpen: Bool?
 
     var body: some View {
-        DisclosureGroup(isExpanded: Binding(
-            get: { isOpen ?? expanded },
-            set: { isOpen = $0 }
-        )) {
-            VStack(spacing: 0) {
-                ForEach(sessions) { SessionRow(session: $0) }
+        let open = isOpen ?? startsOpen
+
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(Theme.Motion.stateChange) { isOpen = !open }
+            } label: {
+                HStack(spacing: Theme.Space.xs) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Theme.Colour.inkMuted48)
+                        .rotationEffect(.degrees(open ? 90 : 0))
+                    Text(Format.day(day))
+                        .font(Theme.Text.bodyStrong())
+                        .tracking(Theme.Text.Track.body)
+                        .foregroundStyle(Theme.Colour.ink)
+                    Spacer()
+                    Text("\(sessions.count)")
+                        .font(Theme.Text.caption())
+                        .foregroundStyle(Theme.Colour.inkMuted48)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, Theme.Space.md)
+                .padding(.vertical, Theme.Space.sm)
+                .contentShape(Rectangle())
             }
-        } label: {
-            HStack {
-                Text(Format.day(day)).font(.callout.weight(.medium))
-                Spacer()
-                Text("\(sessions.count)")
-                    .font(.caption)
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(.quaternary.opacity(0.6), in: Capsule())
+            .buttonStyle(.plain)
+
+            if open {
+                VStack(spacing: 0) {
+                    ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(Theme.Colour.dividerSoft)
+                                .frame(height: 1)
+                                .padding(.leading, Theme.Space.md)
+                        }
+                        SessionRow(session: session)
+                    }
+                }
             }
         }
-        .padding(.vertical, 2)
+        .cardSurface()
     }
 }
 
@@ -220,85 +306,47 @@ private struct SessionRow: View {
     let session: Session
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: Theme.Space.sm) {
             Text(Format.time(session.date))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 62, alignment: .leading)
+                .font(Theme.Text.caption())
+                .monospacedDigit()
+                .foregroundStyle(Theme.Colour.inkMuted48)
+                .frame(width: 58, alignment: .leading)
+                .padding(.top, 1)
 
-            Image(systemName: session.succeeded ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(session.succeeded ? Color.green : Color.orange)
-                .font(.caption)
-                .padding(.top, 2)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(session.text.isEmpty ? "(no text)" : session.text)
-                    .font(.callout)
-                    .foregroundStyle(session.succeeded ? .primary : .secondary)
+            VStack(alignment: .leading, spacing: Theme.Space.xxs) {
+                Text(session.text.isEmpty ? "No text" : session.text)
+                    .font(Theme.Text.body())
+                    .tracking(Theme.Text.Track.body)
+                    .foregroundStyle(session.succeeded ? Theme.Colour.ink : Theme.Colour.inkMuted48)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
 
                 HStack(spacing: 6) {
-                    tag(session.appName, tint: .secondary)
+                    Text(session.appName)
+                    Text("·").foregroundStyle(Theme.Colour.hairline)
                     Text("\(Format.seconds(session.duration)) · \(session.wordCount) words")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    if let failure = session.failure {
-                        tag(failure, tint: .orange)
-                    }
+                        .monospacedDigit()
                 }
-            }
-            Spacer()
-        }
-        .padding(.vertical, 7)
-        .padding(.horizontal, 4)
-        .overlay(alignment: .bottom) { Divider() }
-    }
+                .font(Theme.Text.caption())
+                .foregroundStyle(Theme.Colour.inkMuted48)
 
-    private func tag(_ text: String, tint: Color) -> some View {
-        Text(text)
-            .font(.caption2)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
-            .foregroundStyle(tint == .orange ? Color.orange : Color.secondary)
-    }
-}
-
-struct StatCard: View {
-    let title: String
-    let value: String
-    let caption: String
-    let footnote: String?
-    let symbol: String
-    let colors: [Color]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title)
-                    .font(.caption2.weight(.semibold))
-                    .tracking(1.1)
-                    .foregroundStyle(.white.opacity(0.85))
-                Spacer()
-                Image(systemName: symbol).foregroundStyle(.white.opacity(0.8))
-            }
-            Text(value)
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.top, 4)
-            Text(caption).font(.caption).foregroundStyle(.white.opacity(0.85))
-            if let footnote {
-                Text(footnote)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .padding(.top, 2)
+                // Colour is rationed: a successful row gets no status glyph at all, so the
+                // eye only stops where something actually needs attention.
+                if let failure = session.failure {
+                    HStack(spacing: 5) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                        Text(failure).font(Theme.Text.caption())
+                    }
+                    .foregroundStyle(Theme.Colour.warn)
+                    .padding(.top, 1)
+                }
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-        .background(
-            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 12)
-        )
+        .padding(.horizontal, Theme.Space.md)
+        .padding(.vertical, Theme.Space.sm)
     }
 }
 
@@ -306,7 +354,7 @@ struct StatCard: View {
 
 enum Format {
     static func hours(_ seconds: TimeInterval) -> String {
-        if seconds < 60 { return "\(Int(seconds)) s" }
+        if seconds < 60 { return "\(Int(seconds))s" }
         if seconds < 3600 { return "\(Int(seconds / 60)) min" }
         return String(format: "%.1f h", seconds / 3600)
     }
@@ -314,7 +362,7 @@ enum Format {
     static func seconds(_ value: TimeInterval) -> String {
         value >= 60
             ? String(format: "%d:%02d", Int(value) / 60, Int(value) % 60)
-            : String(format: "%.1f s", value)
+            : String(format: "%.1fs", value)
     }
 
     static func count(_ value: Int) -> String {

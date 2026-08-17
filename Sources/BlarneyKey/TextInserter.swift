@@ -8,6 +8,17 @@ import AppKit
 /// - **type** — synthesised Unicode keystrokes. Slower, but it works in apps that
 ///   refuse a synthetic paste, and it never touches your clipboard.
 enum TextInserter {
+
+    /// Synthetic events are *posted* at the HID level, as though they came from the
+    /// keyboard. `.cgAnnotatedSessionEventTap` exists for event taps that **listen**;
+    /// posting there is silently dropped by most apps, which looks exactly like dictation
+    /// working and then nothing appearing.
+    private static let tap: CGEventTapLocation = .cghidEventTap
+
+    /// Microseconds between the events of a chord. Posting them in the same instant gets
+    /// the chord coalesced away by some apps.
+    private static let gap: UInt32 = 12_000
+
     static func insert(_ text: String, mode: InsertionMode = .paste) {
         guard !text.isEmpty else { return }
         switch mode {
@@ -21,8 +32,8 @@ enum TextInserter {
     private static func pasteViaClipboard(_ text: String) {
         let pb = NSPasteboard.general
 
-        // Snapshot every representation, not just the string, so an image or rich text
-        // on the clipboard survives.
+        // Snapshot every representation, not just the string, so an image or rich text on
+        // the clipboard survives.
         let saved: [NSPasteboard.PasteboardType: Data] = pb.pasteboardItems?.first
             .map { item in
                 item.types.reduce(into: [:]) { dict, type in
@@ -33,29 +44,32 @@ enum TextInserter {
         pb.clearContents()
         pb.setString(text, forType: .string)
 
-        pressCommandV()
+        // Post off the main thread: the inter-event gaps would otherwise stall the UI, and
+        // a busy main thread is a poor place to be feeding the event system from.
+        DispatchQueue.global(qos: .userInitiated).async {
+            pressCommandV()
 
-        // Chromium and Electron apps service the paste asynchronously, so give them
-        // real time before handing the clipboard back.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            guard !saved.isEmpty else { return }
-            pb.clearContents()
-            for (type, data) in saved { pb.setData(data, forType: type) }
+            // Chromium and Electron apps service the paste asynchronously, so give them
+            // real time before handing the clipboard back.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                guard !saved.isEmpty else { return }
+                pb.clearContents()
+                for (type, data) in saved { pb.setData(data, forType: type) }
+            }
         }
     }
 
     /// Sends the whole chord as real key events: ⌘ down, V down, V up, ⌘ up.
     ///
-    /// Setting `.maskCommand` on the V event alone is enough for native AppKit apps,
-    /// but Chromium-based ones (Electron: Notion, Slack, VS Code, Discord) track
-    /// modifier state from the modifier key events themselves. Without a genuine ⌘
-    /// keyDown they see a bare "v" and discard it.
+    /// Setting `.maskCommand` on the V event alone is enough for native AppKit apps, but
+    /// Chromium-based ones (Electron: Notion, Slack, VS Code, Discord) track modifier
+    /// state from the modifier key events themselves. Without a genuine ⌘ keyDown they see
+    /// a bare "v" and discard it.
     private static func pressCommandV() {
         guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
 
         let commandKey: CGKeyCode = 55
         let vKey: CGKeyCode = 9
-        let tap: CGEventTapLocation = .cgAnnotatedSessionEventTap
 
         let commandDown = CGEvent(keyboardEventSource: source, virtualKey: commandKey, keyDown: true)
         commandDown?.flags = .maskCommand
@@ -69,9 +83,6 @@ enum TextInserter {
         let commandUp = CGEvent(keyboardEventSource: source, virtualKey: commandKey, keyDown: false)
         commandUp?.flags = []
 
-        // A few milliseconds between events; posting the chord all at once gets it
-        // coalesced away by some apps.
-        let gap: UInt32 = 8_000
         commandDown?.post(tap: tap)
         usleep(gap)
         vDown?.post(tap: tap)
@@ -86,24 +97,36 @@ enum TextInserter {
     /// Types the text as Unicode input. `keyboardSetUnicodeString` is reliable in small
     /// pieces, so this walks the string in chunks rather than sending it in one event.
     private static func typeDirectly(_ text: String) {
-        guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
-        let units = Array(text.utf16)
-        let chunkSize = 16
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
+            let units = Array(text.utf16)
+            let chunkSize = 16
 
-        for start in stride(from: 0, to: units.count, by: chunkSize) {
-            let chunk = Array(units[start..<min(start + chunkSize, units.count)])
-            guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
-                  let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
-            else { continue }
+            for start in stride(from: 0, to: units.count, by: chunkSize) {
+                let chunk = Array(units[start..<min(start + chunkSize, units.count)])
+                guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+                      let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+                else { continue }
 
-            down.flags = []
-            up.flags = []
-            down.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
-            up.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+                down.flags = []
+                up.flags = []
+                down.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+                up.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
 
-            down.post(tap: .cgAnnotatedSessionEventTap)
-            up.post(tap: .cgAnnotatedSessionEventTap)
-            usleep(3_000)
+                down.post(tap: tap)
+                up.post(tap: tap)
+                usleep(4_000)
+            }
+        }
+    }
+
+    // MARK: - Diagnostics
+
+    /// Inserts a known string after a delay, so insertion can be tested without speaking.
+    /// The delay exists to give you time to click into a text field first.
+    static func test(mode: InsertionMode, after delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            insert("BlarneyKey insertion test ✓", mode: mode)
         }
     }
 }

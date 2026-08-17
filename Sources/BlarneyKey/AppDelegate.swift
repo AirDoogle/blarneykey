@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotKey = HotKeyMonitor()
     private let pill = PillWindow()
 
+    private let permissions = Permissions.shared
     private var statusItem: NSStatusItem!
     private var window: NSWindow?
     private var cancellables = Set<AnyCancellable>()
@@ -23,9 +24,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         wireHotKey()
         observeState()
 
-        // First run, or permission revoked: nothing works without Accessibility, so ask.
-        if !hotKey.hasAccessibilityPermission {
-            promptForAccessibility()
+        // A revoked grant looks identical to a first run, and both leave the app unable
+        // to type, so both open the window where the banner explains it.
+        permissions.$hasAccessibility
+            .receive(on: RunLoop.main)
+            .sink { [weak self] granted in
+                self?.buildMenu()
+                if !granted { self?.setIcon("exclamationmark.triangle.fill", tint: .systemOrange) }
+            }
+            .store(in: &cancellables)
+
+        if !permissions.hasAccessibility {
+            permissions.request()
             openWindow()
         }
     }
@@ -119,8 +129,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(disabled("Hold \(store.settings.binding.shortLabel) to dictate"))
         }
 
-        if !hotKey.hasAccessibilityPermission {
-            menu.addItem(item("Grant Accessibility permission…", #selector(promptForAccessibility)))
+        if !permissions.hasAccessibility {
+            menu.addItem(disabled("Cannot type — no Accessibility permission"))
+            menu.addItem(item("Fix Accessibility permission…", #selector(promptForAccessibility)))
         }
 
         menu.addItem(.separator())
@@ -196,12 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func promptForAccessibility() {
-        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
-        AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
-        if let url = URL(string:
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
+        permissions.request()
+        openWindow()
     }
 
     @objc private func quit() {

@@ -14,7 +14,7 @@ final class PillWindow {
         guard panel == nil else { return }
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 190, height: 44),
+            contentRect: NSRect(x: 0, y: 0, width: 196, height: 46),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false
         )
@@ -22,7 +22,9 @@ final class PillWindow {
         panel.level = .statusBar
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = true
+        // Chrome over content gets its lift from the dark surface, not from a shadow —
+        // the system's one drop-shadow is reserved for product imagery.
+        panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.contentView = NSHostingView(
@@ -30,13 +32,11 @@ final class PillWindow {
         )
 
         // Bottom centre of whichever screen has the mouse.
-        if let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
-            ?? NSScreen.main {
+        if let screen = NSScreen.screens.first(where: {
+            NSMouseInRect(NSEvent.mouseLocation, $0.frame, false)
+        }) ?? NSScreen.main {
             let frame = screen.visibleFrame
-            panel.setFrameOrigin(NSPoint(
-                x: frame.midX - 95,
-                y: frame.minY + 90
-            ))
+            panel.setFrameOrigin(NSPoint(x: frame.midX - 98, y: frame.minY + 90))
         }
 
         panel.orderFrontRegardless()
@@ -73,39 +73,40 @@ private struct PillView: View {
     private let barCount = 13
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Theme.Space.sm) {
             Image(systemName: model.locked ? "lock.fill" : "mic.fill")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.9))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.Colour.bodyMuted)
 
             HStack(spacing: 2) {
                 ForEach(0..<barCount, id: \.self) { index in
                     Capsule()
-                        .fill(.white.opacity(0.9))
+                        .fill(Theme.Colour.onDark)
                         .frame(width: 2.5, height: height(at: index))
                 }
             }
             .frame(height: 20)
 
             Text(String(format: "%d:%02d", Int(model.elapsed) / 60, Int(model.elapsed) % 60))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.white.opacity(0.85))
+                .font(Theme.Text.caption())
+                .monospacedDigit()
+                .foregroundStyle(Theme.Colour.bodyMuted)
 
+            // The one interactive element, so it carries the accent — Sky Link Blue,
+            // because Action Blue disappears against a dark tile.
             Button(action: onStop) {
                 Image(systemName: "stop.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.white)
-                    .padding(5)
-                    .background(.white.opacity(0.22), in: Circle())
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Theme.Colour.onDark)
+                    .padding(6)
+                    .background(Circle().fill(Theme.Colour.primaryOnDark))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            Capsule().fill(Color(red: 0.16, green: 0.13, blue: 0.28).opacity(0.95))
-        )
-        .overlay(Capsule().stroke(.white.opacity(0.15)))
+        .padding(.horizontal, Theme.Space.md)
+        .padding(.vertical, Theme.Space.sm)
+        .background(Capsule().fill(Theme.Colour.tile1))
+        .overlay(Capsule().strokeBorder(Theme.Colour.onDarkFaint.opacity(0.25), lineWidth: 1))
     }
 
     private func height(at index: Int) -> Double {

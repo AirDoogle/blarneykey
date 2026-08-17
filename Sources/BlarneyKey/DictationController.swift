@@ -122,10 +122,20 @@ final class DictationController: ObservableObject {
 
     private func deliver(_ text: String, duration: TimeInterval,
                          bundleID: String, appName: String) {
+        // Pasting needs a live Accessibility grant. Without one, CGEvent.post silently
+        // does nothing — so check first and say so, rather than recording a success for
+        // text that never arrived anywhere.
+        guard AXIsProcessTrusted() else {
+            copyToClipboard(text)
+            log(text: text, duration: duration, bundleID: bundleID, appName: appName,
+                failure: "accessibilityNotGranted")
+            fail("No Accessibility permission, so BlarneyKey cannot paste. Copied to the clipboard instead.")
+            return
+        }
+
         guard store.allows(bundleID: bundleID) else {
             // Do not lose the words: put them on the clipboard and say so.
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
+            copyToClipboard(text)
             log(text: text, duration: duration, bundleID: bundleID, appName: appName,
                 failure: "appNotAllowlisted(bundleID: \"\(bundleID)\")")
             fail("\(appName) is not in your allowlist — copied to the clipboard instead.")
@@ -141,6 +151,11 @@ final class DictationController: ObservableObject {
         }
         log(text: text, duration: duration, bundleID: bundleID, appName: appName, failure: nil)
         state = .idle
+    }
+
+    private func copyToClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     private func log(text: String, duration: TimeInterval, bundleID: String,

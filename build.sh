@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROJECT="$(cd "$(dirname "$0")" && pwd)"
-APP="$HOME/Applications/BlarneyKey.app"
+APP="/Applications/BlarneyKey.app"
 
 echo "==> Compiling"
 cd "$PROJECT"
