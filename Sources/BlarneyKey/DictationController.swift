@@ -87,31 +87,45 @@ final class DictationController: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             do {
-                var text = try await Task.detached(priority: .userInitiated) {
+                let transcribeStart = Date()
+                let raw = try await Task.detached(priority: .userInitiated) {
                     try Transcriber.transcribe(audio, settings: settings)
                 }.value
+                let transcribeSeconds = Date().timeIntervalSince(transcribeStart)
 
-                guard !text.isEmpty else {
+                guard !raw.isEmpty else {
                     await MainActor.run { self.state = .idle }
                     return
                 }
 
+                var finalText = raw
+                var cleanedText: String? = nil
+                var cleanSeconds: TimeInterval? = nil
+
                 // A snippet replaces the utterance wholesale, so no tidying afterwards.
-                if let expansion = SnippetEngine.expand(text, using: self.store.snippets) {
-                    text = expansion
+                if let expansion = SnippetEngine.expand(raw, using: self.store.snippets) {
+                    finalText = expansion
                 } else if self.store.shouldFormat(bundleID: bundleID) {
-                    text = await Cleanup.polish(text)
+                    let cleanStart = Date()
+                    finalText = await Cleanup.polish(raw)
+                    cleanSeconds = Date().timeIntervalSince(cleanStart)
+                    cleanedText = finalText
                 }
 
-                let finalText = text
-                await MainActor.run {
-                    self.deliver(finalText, duration: duration,
-                                 bundleID: bundleID, appName: appName)
-                }
+                let session = Session(
+                    date: Date(), text: finalText, appName: appName, bundleID: bundleID,
+                    duration: duration, failure: nil,
+                    rawText: raw, cleanedText: cleanedText, destination: nil,
+                    transcribeSeconds: transcribeSeconds, cleanSeconds: cleanSeconds,
+                    pasteSeconds: nil
+                )
+                await MainActor.run { self.deliver(session) }
             } catch {
                 await MainActor.run {
-                    self.log(text: "", duration: duration, bundleID: bundleID,
-                             appName: appName, failure: error.localizedDescription)
+                    self.store.record(Session(
+                        date: Date(), text: "", appName: appName, bundleID: bundleID,
+                        duration: duration, failure: error.localizedDescription
+                    ))
                     self.fail(error.localizedDescription)
                 }
             }
@@ -120,25 +134,29 @@ final class DictationController: ObservableObject {
 
     // MARK: - Delivery
 
-    private func deliver(_ text: String, duration: TimeInterval,
-                         bundleID: String, appName: String) {
+    private func deliver(_ session: Session) {
+        var session = session
+        let text = session.text
+
         // Pasting needs a live Accessibility grant. Without one, CGEvent.post silently
         // does nothing — so check first and say so, rather than recording a success for
         // text that never arrived anywhere.
         guard AXIsProcessTrusted() else {
             copyToClipboard(text)
-            log(text: text, duration: duration, bundleID: bundleID, appName: appName,
-                failure: "accessibilityNotGranted")
+            session.destination = "clipboard"
+            session.failure = "accessibilityNotGranted"
+            store.record(session)
             fail("No Accessibility permission, so BlarneyKey cannot paste. Copied to the clipboard instead.")
             return
         }
 
-        guard store.allows(bundleID: bundleID) else {
+        guard store.allows(bundleID: session.bundleID) else {
             // Do not lose the words: put them on the clipboard and say so.
             copyToClipboard(text)
-            log(text: text, duration: duration, bundleID: bundleID, appName: appName,
-                failure: "appNotAllowlisted(bundleID: \"\(bundleID)\")")
-            fail("\(appName) is not in your allowlist — copied to the clipboard instead.")
+            session.destination = "clipboard"
+            session.failure = "appNotAllowlisted(bundleID: \"\(session.bundleID)\")"
+            store.record(session)
+            fail("\(session.appName) is not in your allowlist — copied to the clipboard instead.")
             return
         }
 
@@ -146,24 +164,19 @@ final class DictationController: ObservableObject {
         // asynchronous, so give it a moment before sending keystrokes at the app.
         targetApp?.activate()
         let mode = store.settings.insertionMode
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+        session.destination = mode == .paste ? "paste" : "type"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+            let pasteStart = Date()
             TextInserter.insert(text, mode: mode)
+            session.pasteSeconds = Date().timeIntervalSince(pasteStart)
+            self?.store.record(session)
         }
-        log(text: text, duration: duration, bundleID: bundleID, appName: appName, failure: nil)
         state = .idle
     }
 
     private func copyToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    private func log(text: String, duration: TimeInterval, bundleID: String,
-                     appName: String, failure: String?) {
-        store.record(Session(
-            date: Date(), text: text, appName: appName, bundleID: bundleID,
-            duration: duration, failure: failure
-        ))
     }
 
     private func fail(_ message: String) {

@@ -9,8 +9,10 @@ struct HomeView: View {
     private var stats: Store.Stats { store.stats(for: range) }
     private var unit: WordUnit { store.settings.wordUnit }
 
-    private func series(_ metric: StatMetric) -> [Double] {
-        store.series(for: range, metric: metric)
+    private func points(_ metric: StatMetric) -> [SparklinePoint] {
+        store.seriesPoints(for: range, metric: metric).map {
+            SparklinePoint(label: range.pointLabel(for: $0.date), value: $0.value)
+        }
     }
 
     var body: some View {
@@ -31,22 +33,18 @@ struct HomeView: View {
 
     private var heroTile: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Text("100% ON-DEVICE")
-                .eyebrow(onDark: true)
-                .reveal(0, aboveFold: true)
-
             Text(greeting)
                 .font(Theme.Text.heroDisplay())
                 .tracking(Theme.Text.Track.hero)
                 .foregroundStyle(Theme.Colour.onDark)
-                .reveal(1, aboveFold: true, blurred: true)
+                .reveal(0, aboveFold: true, blurred: true)
 
             Text("\(store.settings.bindingLabel) is your Blarney key. Hold it, talk, and the words land wherever your cursor is.")
                 .font(Theme.Text.lead())
                 .tracking(Theme.Text.Track.body)
                 .foregroundStyle(Theme.Colour.bodyMuted)
                 .fixedSize(horizontal: false, vertical: true)
-                .reveal(2, aboveFold: true, blurred: true)
+                .reveal(1, aboveFold: true, blurred: true)
 
             HStack(spacing: Theme.Space.sm) {
                 Text(store.settings.bindingLabel)
@@ -64,7 +62,7 @@ struct HomeView: View {
                     .foregroundStyle(Theme.Colour.onDarkFaint)
             }
             .padding(.top, Theme.Space.xxs)
-            .reveal(3, aboveFold: true)
+            .reveal(2, aboveFold: true)
         }
         .padding(Theme.Space.section)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -72,37 +70,36 @@ struct HomeView: View {
     }
 
     private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        let part = hour < 12 ? "morning" : (hour < 18 ? "afternoon" : "evening")
         let name = NSFullUserName().split(separator: " ").first.map(String.init) ?? "there"
-        return "Good \(part), \(name)"
+        return "How's the form, \(name)?"
     }
 
     // MARK: - Stats (light tile)
 
     private var statsTile: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
-            HStack(alignment: .center, spacing: Theme.Space.sm) {
-                rangePicker
-                Spacer()
-                unitPicker
-            }
-            .reveal(0)
+            rangePicker.reveal(0)
 
             HStack(alignment: .top, spacing: Theme.Space.md) {
                 StatCard(
                     label: "TIME SAVED",
                     value: Format.hours(stats.timeSaved(typingWPM: store.settings.typingWPM)),
                     footnote: "against typing at \(Int(store.settings.typingWPM)) wpm",
-                    series: series(.timeSaved)
+                    points: points(.timeSaved),
+                    valueFormat: { Format.hours($0) }
                 )
                 .reveal(1)
 
                 StatCard(
                     label: "SPEAKING SPEED",
                     value: "\(Int(stats.wordsPerMinute)) wpm",
-                    footnote: "words per minute while dictating",
-                    series: series(.wordsPerMinute)
+                    footnote: String(
+                        format: "%.1f× faster than typing at %d wpm",
+                        stats.speedMultiple(typingWPM: store.settings.typingWPM),
+                        Int(store.settings.typingWPM)
+                    ),
+                    points: points(.wordsPerMinute),
+                    valueFormat: { String(format: "%.0f wpm · %.1f×", $0, self.multiple(for: $0)) }
                 )
                 .reveal(2)
 
@@ -110,7 +107,8 @@ struct HomeView: View {
                     label: unit == .words ? "WORDS" : "TOKENS",
                     value: Format.count(stats.count(for: unit)),
                     footnote: stats.sessions == 1 ? "across 1 session" : "across \(stats.sessions) sessions",
-                    series: series(unit == .words ? .words : .tokens)
+                    points: points(unit == .words ? .words : .tokens),
+                    accessory: AnyView(unitPicker)
                 )
                 .reveal(3)
             }
@@ -120,7 +118,8 @@ struct HomeView: View {
                     label: "AVERAGE SESSION",
                     value: Format.seconds(stats.averageSession),
                     footnote: "of speaking per go",
-                    series: series(.averageSession)
+                    points: points(.averageSession),
+                    valueFormat: { Format.seconds($0) }
                 )
                 .reveal(4)
 
@@ -146,6 +145,13 @@ struct HomeView: View {
         .background(Theme.Colour.parchment)
     }
 
+    /// How many times faster than typing a given dictation wpm is — the multiplier
+    /// shown next to a hovered Speaking Speed point.
+    private func multiple(for wpm: Double) -> Double {
+        let typingWPM = store.settings.typingWPM
+        return typingWPM <= 0 ? 0 : wpm / typingWPM
+    }
+
     /// Pill segmented control for the time window, styled like the app-filter chips
     /// rather than a native Picker, so it matches the rest of the custom control language.
     private var rangePicker: some View {
@@ -158,7 +164,8 @@ struct HomeView: View {
         }
     }
 
-    /// Two-option pill switch for Words vs Tokens, persisted in Settings.
+    /// Two-option pill switch for Words vs Tokens, persisted in Settings. Lives inside
+    /// the Words card itself, since it only ever affects that one card.
     private var unitPicker: some View {
         HStack(spacing: Theme.Space.xxs) {
             ForEach(WordUnit.allCases) { option in
@@ -263,11 +270,19 @@ struct StatCard: View {
     let label: String
     let value: String
     let footnote: String?
-    var series: [Double]? = nil
+    var points: [SparklinePoint]? = nil
+    var valueFormat: ((Double) -> String)? = nil
+    /// An optional control scoped to this one card, e.g. the Words/Tokens toggle —
+    /// lives beside the eyebrow rather than floating outside the card it affects.
+    var accessory: AnyView? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-            Text(label).eyebrow()
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Space.sm) {
+                Text(label).eyebrow()
+                Spacer(minLength: Theme.Space.xs)
+                accessory
+            }
 
             Text(value)
                 .font(Theme.Text.statNumber())
@@ -276,9 +291,12 @@ struct StatCard: View {
                 .monospacedDigit()
                 .padding(.top, 2)
 
-            if let series, series.count > 1 {
-                Sparkline(values: series)
-                    .padding(.top, Theme.Space.xxs)
+            if let points, points.count > 1 {
+                Sparkline(
+                    points: points,
+                    valueFormat: valueFormat ?? { String(format: "%.0f", $0) }
+                )
+                .padding(.top, Theme.Space.xxs)
             }
 
             if let footnote {
@@ -351,8 +369,16 @@ private struct DayGroup: View {
 
 private struct SessionRow: View {
     let session: Session
+    @State private var expanded = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            summary
+            if expanded { detail }
+        }
+    }
+
+    private var summary: some View {
         HStack(alignment: .top, spacing: Theme.Space.sm) {
             Text(Format.time(session.date))
                 .font(Theme.Text.caption())
@@ -367,7 +393,7 @@ private struct SessionRow: View {
                     .tracking(Theme.Text.Track.body)
                     .foregroundStyle(session.succeeded ? Theme.Colour.ink : Theme.Colour.inkMuted48)
                     .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+                    .lineLimit(expanded ? nil : 3)
 
                 HStack(spacing: 6) {
                     Text(session.appName)
@@ -392,11 +418,84 @@ private struct SessionRow: View {
             }
             Spacer(minLength: 0)
 
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Theme.Colour.inkMuted48)
+                .rotationEffect(.degrees(expanded ? 90 : 0))
+                .padding(.top, 4)
+
             CopyButton(text: session.text)
                 .padding(.top, 1)
         }
         .padding(.horizontal, Theme.Space.md)
         .padding(.vertical, Theme.Space.sm)
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(Theme.Motion.stateChange) { expanded.toggle() } }
+    }
+
+    // MARK: - Expanded detail
+
+    /// The full trace of one recording: the text at each stage, where it went, and how
+    /// long each stage took.
+    private var detail: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            textRow("Raw", session.rawText ?? session.text)
+            textRow("Cleaned", session.cleanedText)
+            textRow("Final", session.text)
+            valueRow("Focused app", session.bundleID.isEmpty ? session.appName : session.bundleID)
+            valueRow("Destination", session.destination)
+            valueRow("Latency", latency)
+        }
+        .padding(.horizontal, Theme.Space.md)
+        .padding(.bottom, Theme.Space.md)
+        .padding(.top, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A stage of text — monospaced so the exact characters read clearly, with its own
+    /// copy button. Empty stages (e.g. cleanup that never ran) show an em dash.
+    private func textRow(_ label: String, _ text: String?) -> some View {
+        let value = (text?.isEmpty == false) ? text! : nil
+        return HStack(alignment: .top, spacing: Theme.Space.sm) {
+            detailLabel(label)
+            Text(value ?? "—")
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(value == nil ? Theme.Colour.inkMuted48 : Theme.Colour.inkMuted80)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: Theme.Space.xs)
+            if let value { CopyButton(text: value) }
+        }
+    }
+
+    private func valueRow(_ label: String, _ value: String?) -> some View {
+        HStack(alignment: .top, spacing: Theme.Space.sm) {
+            detailLabel(label)
+            Text((value?.isEmpty == false) ? value! : "—")
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(Theme.Colour.inkMuted80)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func detailLabel(_ label: String) -> some View {
+        Text(label)
+            .font(Theme.Text.caption())
+            .foregroundStyle(Theme.Colour.inkMuted48)
+            .frame(width: 84, alignment: .leading)
+            .padding(.top, 1)
+    }
+
+    /// "capture 45.32 · transcribe 2.36 · clean 0.00 · paste 0.03" — only the stages
+    /// this recording actually went through.
+    private var latency: String {
+        var parts = ["capture \(Format.latency(session.duration))"]
+        if let t = session.transcribeSeconds { parts.append("transcribe \(Format.latency(t))") }
+        if let c = session.cleanSeconds { parts.append("clean \(Format.latency(c))") }
+        if let p = session.pasteSeconds { parts.append("paste \(Format.latency(p))") }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -440,6 +539,11 @@ enum Format {
         value >= 60
             ? String(format: "%d:%02d", Int(value) / 60, Int(value) % 60)
             : String(format: "%.1fs", value)
+    }
+
+    /// Two-decimal seconds for the per-stage latency line, e.g. "2.36".
+    static func latency(_ value: TimeInterval) -> String {
+        String(format: "%.2f", value)
     }
 
     static func count(_ value: Int) -> String {

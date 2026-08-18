@@ -199,7 +199,8 @@ struct SettingsView: View {
             Row(
                 title: "On-device cleanup",
                 detail: Cleanup.unavailableReason
-                    ?? "Polish transcripts with Apple Intelligence's on-device model. Runs locally; nothing leaves the device."
+                    ?? "Polish transcripts with Apple Intelligence's on-device model. Runs locally; nothing leaves the device.",
+                info: "Fixes punctuation and capitalisation, removes filler words like \"um\" and \"uh\", and drops false starts where you restarted a sentence — using Apple Intelligence's on-device model, so nothing leaves your Mac. It keeps your own wording and tone; it never answers, summarises or translates. If the cleaned-up text comes back a wildly different length, BlarneyKey keeps your original transcript instead."
             ) {
                 if Cleanup.isAvailable {
                     Toggle("", isOn: binding(\.cleanupEverywhere)).labelsHidden()

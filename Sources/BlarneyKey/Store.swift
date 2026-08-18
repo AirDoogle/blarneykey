@@ -217,6 +217,17 @@ enum StatsRange: String, CaseIterable, Identifiable, Codable {
         case .year, .allTime: return .month
         }
     }
+
+    /// How a hovered point's date is labelled in a chart tooltip.
+    func pointLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        switch bucket {
+        case .hour: formatter.dateFormat = "h a"
+        case .day: formatter.dateFormat = self == .week ? "EEE d" : "MMM d"
+        default: formatter.dateFormat = "MMM yyyy"
+        }
+        return formatter.string(from: date)
+    }
 }
 
 /// Which per-session figure a card or sparkline is plotting.
@@ -271,9 +282,10 @@ extension Store {
         return stats
     }
 
-    /// A bucketed trend line for a metric over a range — one point per bucket, oldest first.
-    /// Empty buckets are zero rather than omitted, so a sparkline never looks broken.
-    func series(for range: StatsRange, metric: StatMetric) -> [Double] {
+    /// A bucketed trend line for a metric over a range — one point per bucket, oldest
+    /// first, each keeping its bucket's start date so a chart can label a hovered
+    /// point ("Tue 12", "3 PM", "Mar") instead of just plotting a shape.
+    func seriesPoints(for range: StatsRange, metric: StatMetric) -> [(date: Date, value: Double)] {
         let calendar = Calendar.current
         let now = Date()
         let recent = sessions.filter { session in
@@ -333,7 +345,10 @@ extension Store {
             }
         }
 
-        return buckets
+        let dates = (0..<buckets.count).map { index in
+            calendar.date(byAdding: range.bucket, value: index, to: start) ?? start
+        }
+        return zip(dates, buckets).map { (date: $0, value: $1) }
     }
 
     var sessionsToday: Int {

@@ -54,15 +54,26 @@ struct Section_<Content: View>: View {
 struct Row<Control: View>: View {
     let title: String
     var detail: String?
+    /// Longer explanation shown as a native hover tooltip off a small (i) glyph,
+    /// for settings that need more context than fits in the one-line detail.
+    var info: String?
     @ViewBuilder var control: Control
 
     var body: some View {
         HStack(alignment: .center, spacing: Theme.Space.md) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Theme.Text.bodyStrong())
-                    .tracking(Theme.Text.Track.body)
-                    .foregroundStyle(Theme.Colour.ink)
+                HStack(spacing: 5) {
+                    Text(title)
+                        .font(Theme.Text.bodyStrong())
+                        .tracking(Theme.Text.Track.body)
+                        .foregroundStyle(Theme.Colour.ink)
+                    if let info {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.Colour.inkMuted48)
+                            .help(info)
+                    }
+                }
                 if let detail {
                     Text(detail)
                         .font(Theme.Text.caption())

@@ -5,6 +5,8 @@ import Foundation
 struct Session: Codable, Identifiable {
     var id = UUID()
     var date: Date
+    /// The final text that was delivered (or copied). Kept as `text` because every
+    /// stat, filter and row summary reads it.
     var text: String
     var appName: String
     var bundleID: String
@@ -12,6 +14,22 @@ struct Session: Codable, Identifiable {
     var duration: TimeInterval
     /// Nil when the text was inserted successfully.
     var failure: String?
+
+    // MARK: - Recording detail (all optional, added after the first releases, so an
+    // older state.json still decodes — these simply read as nil for past sessions).
+
+    /// The transcript straight out of the speech model, before any snippet or cleanup.
+    var rawText: String?
+    /// The transcript after the cleanup model, when it ran. Nil when cleanup was skipped.
+    var cleanedText: String?
+    /// How the text reached the app: "paste", "type", or "clipboard" (the fallback).
+    var destination: String?
+    /// Seconds spent turning audio into text.
+    var transcribeSeconds: TimeInterval?
+    /// Seconds spent in the cleanup model. Zero when it ran and did nothing; nil when skipped.
+    var cleanSeconds: TimeInterval?
+    /// Seconds spent inserting the text into the focused app.
+    var pasteSeconds: TimeInterval?
 
     var wordCount: Int {
         text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).count

@@ -43,8 +43,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !permissions.hasAccessibility {
             permissions.request()
+        }
+
+        // A double-click from Finder, Applications or Spotlight should open the window.
+        // A quiet launch as a login item should not — it just lives in the menu bar.
+        // macOS sets launchIsDefaultLaunchKey to false only for the login-item case.
+        let launchedByUser = (notification.userInfo?["NSApplicationLaunchIsDefaultLaunchKey"] as? Bool) ?? true
+        if launchedByUser || !permissions.hasAccessibility {
             openWindow()
         }
+    }
+
+    // While the app is already running, double-clicking it in Finder or clicking it in
+    // the Dock just re-activates this instance — bring the window back up instead of
+    // leaving the user to hunt for the menu-bar icon.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        openWindow()
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -220,6 +235,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered, defer: false
         )
         window.title = "BlarneyKey"
+        // The sidebar already brands the window, so the title text in the toolbar is
+        // redundant — and it renders dark-on-dark over the hero tile, which slides up
+        // under the unified titlebar. Hide the text; the traffic lights stay.
+        window.titleVisibility = .hidden
         // Opaque, and not full-size content: a transparent titlebar over a scrolling
         // view leaves the title sitting on top of the content as it passes underneath.
         window.titlebarAppearsTransparent = false
