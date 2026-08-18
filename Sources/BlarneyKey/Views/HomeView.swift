@@ -4,8 +4,14 @@ struct HomeView: View {
     @ObservedObject var store: Store
     @ObservedObject var dictation: DictationController
     @State private var appFilter: String? = nil
+    @State private var range: StatsRange = .week
 
-    private var stats: Store.Stats { store.weekStats }
+    private var stats: Store.Stats { store.stats(for: range) }
+    private var unit: WordUnit { store.settings.wordUnit }
+
+    private func series(_ metric: StatMetric) -> [Double] {
+        store.series(for: range, metric: metric)
+    }
 
     var body: some View {
         ScrollView {
@@ -76,27 +82,35 @@ struct HomeView: View {
 
     private var statsTile: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
-            Text("THIS WEEK").eyebrow().reveal(0)
+            HStack(alignment: .center, spacing: Theme.Space.sm) {
+                rangePicker
+                Spacer()
+                unitPicker
+            }
+            .reveal(0)
 
             HStack(alignment: .top, spacing: Theme.Space.md) {
                 StatCard(
                     label: "TIME SAVED",
                     value: Format.hours(stats.timeSaved(typingWPM: store.settings.typingWPM)),
-                    footnote: "against typing at \(Int(store.settings.typingWPM)) wpm"
+                    footnote: "against typing at \(Int(store.settings.typingWPM)) wpm",
+                    series: series(.timeSaved)
                 )
                 .reveal(1)
 
                 StatCard(
                     label: "SPEAKING SPEED",
-                    value: String(format: "%.1f×", stats.speedMultiple(typingWPM: store.settings.typingWPM)),
-                    footnote: "≈\(Int(stats.wordsPerMinute)) words a minute"
+                    value: "\(Int(stats.wordsPerMinute)) wpm",
+                    footnote: "words per minute while dictating",
+                    series: series(.wordsPerMinute)
                 )
                 .reveal(2)
 
                 StatCard(
-                    label: "WORDS",
-                    value: Format.count(stats.words),
-                    footnote: stats.sessions == 1 ? "across 1 session" : "across \(stats.sessions) sessions"
+                    label: unit == .words ? "WORDS" : "TOKENS",
+                    value: Format.count(stats.count(for: unit)),
+                    footnote: stats.sessions == 1 ? "across 1 session" : "across \(stats.sessions) sessions",
+                    series: series(unit == .words ? .words : .tokens)
                 )
                 .reveal(3)
             }
@@ -105,14 +119,17 @@ struct HomeView: View {
                 StatCard(
                     label: "AVERAGE SESSION",
                     value: Format.seconds(stats.averageSession),
-                    footnote: "of speaking per go"
+                    footnote: "of speaking per go",
+                    series: series(.averageSession)
                 )
                 .reveal(4)
 
                 StatCard(
                     label: "STREAK",
                     value: stats.streakDays > 0 ? "\(stats.streakDays) days" : "—",
-                    footnote: stats.streakDays > 0 ? "consecutive days dictating" : "no streak yet"
+                    footnote: stats.streakDays > 0
+                        ? "best ever: \(store.longestStreak) days"
+                        : "no streak yet"
                 )
                 .reveal(5)
 
@@ -127,6 +144,30 @@ struct HomeView: View {
         .padding(Theme.Space.section)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.Colour.parchment)
+    }
+
+    /// Pill segmented control for the time window, styled like the app-filter chips
+    /// rather than a native Picker, so it matches the rest of the custom control language.
+    private var rangePicker: some View {
+        HStack(spacing: Theme.Space.xxs) {
+            ForEach(StatsRange.allCases) { option in
+                chip(option.label.uppercased(), selected: range == option) {
+                    withAnimation(Theme.Motion.stateChange) { range = option }
+                }
+            }
+        }
+    }
+
+    /// Two-option pill switch for Words vs Tokens, persisted in Settings.
+    private var unitPicker: some View {
+        HStack(spacing: Theme.Space.xxs) {
+            ForEach(WordUnit.allCases) { option in
+                chip(option.label.uppercased(), selected: unit == option) {
+                    store.settings.wordUnit = option
+                    store.save()
+                }
+            }
+        }
     }
 
     // MARK: - Activity (parchment tile)
@@ -222,6 +263,7 @@ struct StatCard: View {
     let label: String
     let value: String
     let footnote: String?
+    var series: [Double]? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xxs) {
@@ -233,6 +275,11 @@ struct StatCard: View {
                 .foregroundStyle(Theme.Colour.ink)
                 .monospacedDigit()
                 .padding(.top, 2)
+
+            if let series, series.count > 1 {
+                Sparkline(values: series)
+                    .padding(.top, Theme.Space.xxs)
+            }
 
             if let footnote {
                 Text(footnote)

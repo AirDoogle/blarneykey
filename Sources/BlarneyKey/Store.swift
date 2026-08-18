@@ -183,10 +183,52 @@ final class Store: ObservableObject {
 
 // MARK: - Stats
 
+/// The time window the dashboard is currently looking at.
+enum StatsRange: String, CaseIterable, Identifiable, Codable {
+    case today, week, month, year, allTime
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .today: return "Today"
+        case .week: return "Week"
+        case .month: return "Month"
+        case .year: return "Year"
+        case .allTime: return "All time"
+        }
+    }
+
+    /// Nil means no cutoff — all history.
+    func cutoff(from now: Date, calendar: Calendar = .current) -> Date? {
+        switch self {
+        case .today: return calendar.startOfDay(for: now)
+        case .week: return calendar.date(byAdding: .day, value: -7, to: now)
+        case .month: return calendar.date(byAdding: .month, value: -1, to: now)
+        case .year: return calendar.date(byAdding: .year, value: -1, to: now)
+        case .allTime: return nil
+        }
+    }
+
+    /// The bucket size used when charting this range as a series.
+    var bucket: Calendar.Component {
+        switch self {
+        case .today: return .hour
+        case .week, .month: return .day
+        case .year, .allTime: return .month
+        }
+    }
+}
+
+/// Which per-session figure a card or sparkline is plotting.
+enum StatMetric {
+    case words, tokens, wordsPerMinute, timeSaved, sessionCount, averageSession
+}
+
 extension Store {
     struct Stats {
         var sessions = 0
         var words = 0
+        var tokens = 0
         var speakingSeconds: TimeInterval = 0
         var streakDays = 0
 
@@ -195,6 +237,8 @@ extension Store {
         var wordsPerMinute: Double {
             speakingSeconds <= 0 ? 0 : Double(words) / (speakingSeconds / 60)
         }
+
+        func count(for unit: WordUnit) -> Int { unit == .words ? words : tokens }
 
         /// How much longer typing the same words would have taken.
         func timeSaved(typingWPM: Double) -> TimeInterval {
@@ -208,17 +252,88 @@ extension Store {
         }
     }
 
-    /// Stats for the last 7 days, counting only sessions whose text actually landed.
-    var weekStats: Stats {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let recent = sessions.filter { $0.date >= cutoff && $0.succeeded }
+    /// Stats for a given time window, counting only sessions whose text actually landed.
+    func stats(for range: StatsRange) -> Stats {
+        let now = Date()
+        let recent: [Session]
+        if let cutoff = range.cutoff(from: now) {
+            recent = sessions.filter { $0.date >= cutoff && $0.succeeded }
+        } else {
+            recent = sessions.filter(\.succeeded)
+        }
 
         var stats = Stats()
         stats.sessions = recent.count
         stats.words = recent.reduce(0) { $0 + $1.wordCount }
+        stats.tokens = recent.reduce(0) { $0 + $1.tokenCount }
         stats.speakingSeconds = recent.reduce(0) { $0 + $1.duration }
         stats.streakDays = currentStreak
         return stats
+    }
+
+    /// A bucketed trend line for a metric over a range — one point per bucket, oldest first.
+    /// Empty buckets are zero rather than omitted, so a sparkline never looks broken.
+    func series(for range: StatsRange, metric: StatMetric) -> [Double] {
+        let calendar = Calendar.current
+        let now = Date()
+        let recent = sessions.filter { session in
+            session.succeeded && (range.cutoff(from: now).map { session.date >= $0 } ?? true)
+        }
+
+        let start: Date
+        switch range {
+        case .today: start = calendar.startOfDay(for: now)
+        case .week, .month: start = range.cutoff(from: now) ?? now
+        case .year: start = range.cutoff(from: now) ?? now
+        case .allTime: start = recent.map(\.date).min() ?? now
+        }
+
+        let bucketCount: Int
+        switch range {
+        case .today: bucketCount = 24
+        case .week: bucketCount = 7
+        case .month: bucketCount = calendar.dateComponents([.day], from: start, to: now).day.map { $0 + 1 } ?? 30
+        case .year: bucketCount = 12
+        case .allTime:
+            let months = calendar.dateComponents([.month], from: start, to: now).month ?? 0
+            bucketCount = max(1, months + 1)
+        }
+
+        var buckets = [Double](repeating: 0, count: max(1, bucketCount))
+        var counts = [Int](repeating: 0, count: max(1, bucketCount))
+
+        for session in recent {
+            let distance = calendar.dateComponents([range.bucket], from: start, to: session.date)
+            let index = (range.bucket == .hour ? distance.hour : (range.bucket == .day ? distance.day : distance.month)) ?? 0
+            guard index >= 0, index < buckets.count else { continue }
+
+            switch metric {
+            case .words: buckets[index] += Double(session.wordCount)
+            case .tokens: buckets[index] += Double(session.tokenCount)
+            case .wordsPerMinute:
+                buckets[index] += session.duration > 0 ? Double(session.wordCount) / (session.duration / 60) : 0
+                counts[index] += 1
+            case .timeSaved:
+                let typingWPM = settings.typingWPM
+                if typingWPM > 0, session.wordCount > 0 {
+                    let typingSeconds = Double(session.wordCount) / typingWPM * 60
+                    buckets[index] += max(0, typingSeconds - session.duration)
+                }
+            case .sessionCount: buckets[index] += 1
+            case .averageSession:
+                buckets[index] += session.duration
+                counts[index] += 1
+            }
+        }
+
+        // Average-based metrics need dividing by how many sessions landed in each bucket.
+        if metric == .wordsPerMinute || metric == .averageSession {
+            for i in buckets.indices where counts[i] > 0 {
+                buckets[i] /= Double(counts[i])
+            }
+        }
+
+        return buckets
     }
 
     var sessionsToday: Int {
@@ -245,6 +360,25 @@ extension Store {
             cursor = previous
         }
         return streak
+    }
+
+    /// The longest run of consecutive dictating days ever recorded.
+    var longestStreak: Int {
+        let calendar = Calendar.current
+        let days = Set(sessions.map { calendar.startOfDay(for: $0.date) }).sorted()
+        guard !days.isEmpty else { return 0 }
+
+        var longest = 1
+        var current = 1
+        for i in 1..<days.count {
+            if calendar.dateComponents([.day], from: days[i - 1], to: days[i]).day == 1 {
+                current += 1
+            } else {
+                current = 1
+            }
+            longest = max(longest, current)
+        }
+        return longest
     }
 
     /// App names seen in the history, most used first — the filter chips.

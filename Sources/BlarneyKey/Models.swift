@@ -17,7 +17,20 @@ struct Session: Codable, Identifiable {
         text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).count
     }
 
+    var characterCount: Int { text.count }
+
+    /// Rough English heuristic (~4 characters per token). No tokenizer dependency,
+    /// so this is an estimate, not an exact count from any specific model.
+    var tokenCount: Int { max(wordCount > 0 ? 1 : 0, characterCount / 4) }
+
     var succeeded: Bool { failure == nil }
+}
+
+/// Whether word-based stats are shown as words or an estimated token count.
+enum WordUnit: String, Codable, CaseIterable, Identifiable {
+    case words, tokens
+    var id: String { rawValue }
+    var label: String { self == .words ? "Words" : "Tokens" }
 }
 
 // MARK: - Allowlist
@@ -329,6 +342,9 @@ struct Settings: Codable {
     /// Baseline for the "time saved" figure. 40 wpm is an average typing speed.
     var typingWPM: Double = 40
 
+    /// Whether the dashboard shows word counts or an estimated token count.
+    var wordUnit: WordUnit = .words
+
     var modelPath = "\(NSHomeDirectory())/Developer/blarneykey/models/combined"
     var modelPrefix = "distil"
     var cliPath = "/opt/homebrew/bin/whisperkit-cli"
@@ -352,7 +368,7 @@ struct Settings: Codable {
         case bindings, binding, hotKey, insertionMode, appearance, launchAtLogin
         case language, playSounds, showPill
         case doubleTapToLock
-        case minimumDuration, allowAllApps, cleanupEverywhere, typingWPM
+        case minimumDuration, allowAllApps, cleanupEverywhere, typingWPM, wordUnit
         case modelPath, modelPrefix, cliPath
     }
 
@@ -387,6 +403,7 @@ struct Settings: Codable {
         cleanupEverywhere = try c.decodeIfPresent(Bool.self, forKey: .cleanupEverywhere)
             ?? cleanupEverywhere
         typingWPM = try c.decodeIfPresent(Double.self, forKey: .typingWPM) ?? typingWPM
+        wordUnit = try c.decodeIfPresent(WordUnit.self, forKey: .wordUnit) ?? wordUnit
         modelPath = try c.decodeIfPresent(String.self, forKey: .modelPath) ?? modelPath
         modelPrefix = try c.decodeIfPresent(String.self, forKey: .modelPrefix) ?? modelPrefix
         cliPath = try c.decodeIfPresent(String.self, forKey: .cliPath) ?? cliPath
@@ -406,6 +423,7 @@ struct Settings: Codable {
         try c.encode(allowAllApps, forKey: .allowAllApps)
         try c.encode(cleanupEverywhere, forKey: .cleanupEverywhere)
         try c.encode(typingWPM, forKey: .typingWPM)
+        try c.encode(wordUnit, forKey: .wordUnit)
         try c.encode(modelPath, forKey: .modelPath)
         try c.encode(modelPrefix, forKey: .modelPrefix)
         try c.encode(cliPath, forKey: .cliPath)
