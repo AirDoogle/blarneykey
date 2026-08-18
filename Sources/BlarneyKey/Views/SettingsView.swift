@@ -259,8 +259,70 @@ struct SettingsView: View {
 
     // MARK: - Model
 
+    /// A WhisperKit model folder discovered on disk: the folder name, its full path, and
+    /// the tensor prefix it was assembled with (read from the marker `setup.sh` leaves).
+    private struct SpeechModel: Hashable, Identifiable {
+        let name: String
+        let path: String
+        let prefix: String
+        var id: String { path }
+    }
+
+    /// The folder the models live in — the parent of whichever one is selected.
+    private var modelsDirectory: String {
+        (store.settings.modelPath as NSString).deletingLastPathComponent
+    }
+
+    /// Every subfolder of the models directory that actually holds a compiled model, so the
+    /// picker only ever offers something that will load.
+    private func discoveredModels() -> [SpeechModel] {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(atPath: modelsDirectory) else { return [] }
+        return entries.sorted().compactMap { name in
+            let path = (modelsDirectory as NSString).appendingPathComponent(name)
+            let encoder = (path as NSString).appendingPathComponent("AudioEncoder.mlmodelc")
+            guard fm.fileExists(atPath: encoder) else { return nil }
+            let marker = (path as NSString).appendingPathComponent("model-prefix.txt")
+            let prefix = (try? String(contentsOfFile: marker, encoding: .utf8))?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return SpeechModel(
+                name: name, path: path,
+                prefix: (prefix?.isEmpty == false) ? prefix! : store.settings.modelPrefix
+            )
+        }
+    }
+
     private var modelSection: some View {
-        Section_(label: "MODEL", index: 6) {
+        let models = discoveredModels()
+        return Section_(label: "MODEL", index: 6) {
+            Row(
+                title: "Speech model",
+                detail: "Transcription runs on WhisperKit. Pick which model it loads — larger is more accurate, smaller is faster."
+            ) {
+                if models.isEmpty {
+                    Text("None found")
+                        .font(Theme.Text.captionStrong())
+                        .foregroundStyle(Theme.Colour.warn)
+                } else {
+                    Picker("", selection: Binding(
+                        get: { store.settings.modelPath },
+                        set: { newPath in
+                            store.settings.modelPath = newPath
+                            // Match the prefix to the chosen model, so a model assembled
+                            // with a different prefix still loads.
+                            if let model = models.first(where: { $0.path == newPath }) {
+                                store.settings.modelPrefix = model.prefix
+                            }
+                            store.save()
+                        }
+                    )) {
+                        ForEach(models) { Text($0.name).tag($0.path) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 200)
+                }
+            }
+            RowDivider()
             Row(title: "Model folder", detail: store.settings.modelPath) {
                 HStack(spacing: Theme.Space.xs) {
                     if modelReady {
@@ -280,6 +342,9 @@ struct SettingsView: View {
                     .buttonStyle(UtilityButtonStyle())
                 }
             }
+            RowDivider()
+            Note(kind: .plain,
+                 text: "Models live in \(modelsDirectory). To add one, run  ./setup.sh <model> <prefix> <folder>  in the BlarneyKey project folder — e.g.  ./setup.sh large-v3 openai large-v3  — and it appears in this list. Model names are on Hugging Face at argmaxinc/whisperkit-coreml.")
         }
     }
 

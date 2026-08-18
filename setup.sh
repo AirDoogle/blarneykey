@@ -8,8 +8,12 @@ set -euo pipefail
 PROJECT="$(cd "$(dirname "$0")" && pwd)"
 MODEL_NAME="${1:-distil-large-v3}"
 PREFIX="${2:-distil}"
+# The subfolder under models/ to assemble into. Defaults to "combined" so the first run
+# matches the app's default model path; pass a name (e.g. large-v3) to add a second model
+# alongside it, which the Settings → Model picker then lists.
+FOLDER="${3:-combined}"
 STAGING="$PROJECT/.model-download"
-TARGET="$PROJECT/models/combined"
+TARGET="$PROJECT/models/$FOLDER"
 
 echo "==> Checking for whisperkit-cli"
 if ! command -v whisperkit-cli >/dev/null 2>&1; then
@@ -51,6 +55,9 @@ rm -rf "$TARGET"
 mkdir -p "$TARGET"
 cp -R "$MODEL_DIR/." "$TARGET/"
 cp "$TOKENIZER_DIR/tokenizer.json" "$TOKENIZER_DIR/tokenizer_config.json" "$TARGET/"
+# Leave the prefix beside the model so the app's Model picker can load this folder with
+# the right prefix when several models sit side by side.
+printf '%s\n' "$PREFIX" > "$TARGET/model-prefix.txt"
 
 echo "==> Testing the engine"
 whisperkit-cli transcribe --model-path "$TARGET" --model-prefix "$PREFIX" \

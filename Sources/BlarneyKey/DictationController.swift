@@ -111,7 +111,7 @@ final class DictationController: ObservableObject {
                     finalText = await Cleanup.polish(raw)
                     cleanSeconds = Date().timeIntervalSince(cleanStart)
                     cleanedText = finalText
-                    cleanModel = "Apple Intelligence"
+                    cleanModel = Cleanup.modelName
                 }
 
                 let session = Session(

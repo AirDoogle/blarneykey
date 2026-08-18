@@ -440,19 +440,20 @@ private struct SessionRow: View {
     // MARK: - Expanded detail
 
     /// The full trace of one recording: the text at each stage, which model produced it,
-    /// and how long that stage took — so it is clear at a glance which model did the
-    /// transcription and which did the on-device cleanup.
+    /// and how long that stage took. The Cleaned stage only appears when cleanup actually
+    /// ran — with it off, there is no second model to show, so the row is omitted entirely.
     private var detail: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             stage("Raw",
                   text: session.rawText ?? session.text,
-                  by: session.transcribeModel ?? "on-device speech model",
+                  by: session.transcribeModel ?? Store.shared.settings.speechModelName,
                   seconds: session.transcribeSeconds)
-            stage("Cleaned",
-                  text: session.cleanedText,
-                  by: session.cleanModel,
-                  seconds: session.cleanSeconds,
-                  skipped: "Cleanup did not run for this app.")
+            if let cleaned = session.cleanedText, !cleaned.isEmpty {
+                stage("Cleaned",
+                      text: cleaned,
+                      by: session.cleanModel ?? Cleanup.modelName,
+                      seconds: session.cleanSeconds)
+            }
             stage("Final",
                   text: session.text,
                   by: deliveryLabel,
@@ -473,14 +474,11 @@ private struct SessionRow: View {
     }
 
     /// One stage of the pipeline: an eyebrow, the model that produced it and how long it
-    /// took on the same line, then the monospaced text with its own copy button. A stage
-    /// that never ran (cleanup, on an app that skips it) says so rather than showing a bare
-    /// dash — that absence is itself the answer to "which model touched this recording".
+    /// took on the same line, then the monospaced text with its own copy button.
     private func stage(_ label: String,
                        text: String?,
                        by producer: String?,
-                       seconds: TimeInterval?,
-                       skipped: String? = nil) -> some View {
+                       seconds: TimeInterval?) -> some View {
         let value = (text?.isEmpty == false) ? text : nil
         return VStack(alignment: .leading, spacing: Theme.Space.xxs) {
             HStack(alignment: .firstTextBaseline, spacing: Theme.Space.xs) {
@@ -494,7 +492,7 @@ private struct SessionRow: View {
                 Spacer(minLength: Theme.Space.xs)
                 if let value { CopyButton(text: value) }
             }
-            Text(value ?? (skipped ?? "—"))
+            Text(value ?? "—")
                 .font(.system(size: 12, design: value == nil ? .default : .monospaced))
                 .foregroundStyle(value == nil ? Theme.Colour.inkMuted48 : Theme.Colour.inkMuted80)
                 .textSelection(.enabled)

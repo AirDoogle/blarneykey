@@ -14,6 +14,9 @@ import FoundationModels
 /// this Mac, or anything throws, the caller keeps the raw transcript. Dictation that
 /// pastes something is always better than dictation that pastes nothing.
 enum Cleanup {
+    /// The model behind the cleanup pass, for display in the recording detail.
+    static let modelName = "Apple Intelligence"
+
     private static let instructions = """
         You tidy dictated speech. Fix punctuation, capitalisation and obvious \
         transcription slips. Remove filler words such as um and uh, and remove false \

@@ -375,10 +375,14 @@ struct Settings: Codable {
 
     var primaryBinding: KeyBinding { bindings.first ?? .default }
 
-    /// A human label for the speech model, e.g. "WhisperKit · distil" — WhisperKit is the
-    /// engine, the prefix names the actual model weights it loads.
+    /// A human label for the speech model, e.g. "WhisperKit · distil-large-v3". WhisperKit
+    /// is the engine; the model folder names the weights it loads, falling back to the
+    /// prefix when the folder is the generic "combined".
     var speechModelName: String {
-        "WhisperKit · \(modelPrefix.isEmpty ? "custom" : modelPrefix)"
+        let folder = (modelPath as NSString).lastPathComponent
+        let generic: Set<String> = ["", "combined", "model", "models"]
+        let name = generic.contains(folder.lowercased()) ? modelPrefix : folder
+        return "WhisperKit · \(name.isEmpty ? "distil" : name)"
     }
 
     /// "Right ⌥", or "Right ⌥ or F13" when more than one key is set up.
