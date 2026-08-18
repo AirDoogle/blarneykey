@@ -22,6 +22,10 @@ struct Session: Codable, Identifiable {
     var rawText: String?
     /// The transcript after the cleanup model, when it ran. Nil when cleanup was skipped.
     var cleanedText: String?
+    /// Which speech model produced `rawText`, e.g. "WhisperKit · distil". Nil for older sessions.
+    var transcribeModel: String?
+    /// Which model produced `cleanedText`, e.g. "Apple Intelligence". Nil when cleanup was skipped.
+    var cleanModel: String?
     /// How the text reached the app: "paste", "type", or "clipboard" (the fallback).
     var destination: String?
     /// Seconds spent turning audio into text.
@@ -370,6 +374,12 @@ struct Settings: Codable {
     init() {}
 
     var primaryBinding: KeyBinding { bindings.first ?? .default }
+
+    /// A human label for the speech model, e.g. "WhisperKit · distil" — WhisperKit is the
+    /// engine, the prefix names the actual model weights it loads.
+    var speechModelName: String {
+        "WhisperKit · \(modelPrefix.isEmpty ? "custom" : modelPrefix)"
+    }
 
     /// "Right ⌥", or "Right ⌥ or F13" when more than one key is set up.
     var bindingLabel: String {

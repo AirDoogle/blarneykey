@@ -119,9 +119,10 @@ struct RootView: View {
             statusBox
             credit
         }
-        // An opaque surface: the default sidebar material is translucent, so the dark
-        // hero tile showed through it and made the menu unreadable.
-        .background(Theme.Colour.parchment)
+        // An opaque surface that paints all the way to the top edge: the default sidebar
+        // material is translucent, so the dark hero tile showed through it, and without
+        // ignoring the safe area the titlebar strip above the menu read as black.
+        .background(Theme.Colour.parchment.ignoresSafeArea())
     }
 
     /// Built-by credit. The link is UTM tagged per the Cork AI Consulting tracking doc

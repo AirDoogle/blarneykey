@@ -248,6 +248,8 @@ struct HomeView: View {
             Text(label)
                 .font(Theme.Text.caption())
                 .foregroundStyle(Theme.Colour.ink)
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, Theme.Space.sm)
                 .padding(.vertical, 6)
                 .background(Capsule().fill(Theme.Colour.canvas))
@@ -278,10 +280,12 @@ struct StatCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Space.sm) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Space.xs) {
                 Text(label).eyebrow()
-                Spacer(minLength: Theme.Space.xs)
+                    .lineLimit(1)
+                Spacer(minLength: Theme.Space.xxs)
                 accessory
+                    .layoutPriority(1)
             }
 
             Text(value)
@@ -435,16 +439,32 @@ private struct SessionRow: View {
 
     // MARK: - Expanded detail
 
-    /// The full trace of one recording: the text at each stage, where it went, and how
-    /// long each stage took.
+    /// The full trace of one recording: the text at each stage, which model produced it,
+    /// and how long that stage took — so it is clear at a glance which model did the
+    /// transcription and which did the on-device cleanup.
     private var detail: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            textRow("Raw", session.rawText ?? session.text)
-            textRow("Cleaned", session.cleanedText)
-            textRow("Final", session.text)
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            stage("Raw",
+                  text: session.rawText ?? session.text,
+                  by: session.transcribeModel ?? "on-device speech model",
+                  seconds: session.transcribeSeconds)
+            stage("Cleaned",
+                  text: session.cleanedText,
+                  by: session.cleanModel,
+                  seconds: session.cleanSeconds,
+                  skipped: "Cleanup did not run for this app.")
+            stage("Final",
+                  text: session.text,
+                  by: deliveryLabel,
+                  seconds: session.pasteSeconds)
+
+            Rectangle()
+                .fill(Theme.Colour.dividerSoft)
+                .frame(height: 1)
+                .padding(.vertical, 2)
+
             valueRow("Focused app", session.bundleID.isEmpty ? session.appName : session.bundleID)
-            valueRow("Destination", session.destination)
-            valueRow("Latency", latency)
+            valueRow("Captured", "\(Format.latency(session.duration))s of audio")
         }
         .padding(.horizontal, Theme.Space.md)
         .padding(.bottom, Theme.Space.md)
@@ -452,19 +472,53 @@ private struct SessionRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// A stage of text — monospaced so the exact characters read clearly, with its own
-    /// copy button. Empty stages (e.g. cleanup that never ran) show an em dash.
-    private func textRow(_ label: String, _ text: String?) -> some View {
-        let value = (text?.isEmpty == false) ? text! : nil
-        return HStack(alignment: .top, spacing: Theme.Space.sm) {
-            detailLabel(label)
-            Text(value ?? "—")
-                .font(.system(size: 12, design: .monospaced))
+    /// One stage of the pipeline: an eyebrow, the model that produced it and how long it
+    /// took on the same line, then the monospaced text with its own copy button. A stage
+    /// that never ran (cleanup, on an app that skips it) says so rather than showing a bare
+    /// dash — that absence is itself the answer to "which model touched this recording".
+    private func stage(_ label: String,
+                       text: String?,
+                       by producer: String?,
+                       seconds: TimeInterval?,
+                       skipped: String? = nil) -> some View {
+        let value = (text?.isEmpty == false) ? text : nil
+        return VStack(alignment: .leading, spacing: Theme.Space.xxs) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Space.xs) {
+                Text(label).eyebrow()
+                if value != nil, let meta = stageMeta(by: producer, seconds: seconds) {
+                    Text(meta)
+                        .font(Theme.Text.caption())
+                        .foregroundStyle(Theme.Colour.inkMuted48)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: Theme.Space.xs)
+                if let value { CopyButton(text: value) }
+            }
+            Text(value ?? (skipped ?? "—"))
+                .font(.system(size: 12, design: value == nil ? .default : .monospaced))
                 .foregroundStyle(value == nil ? Theme.Colour.inkMuted48 : Theme.Colour.inkMuted80)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: Theme.Space.xs)
-            if let value { CopyButton(text: value) }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// "WhisperKit · distil · 2.36s" — the model and the time it took, either of which may
+    /// be missing on an older session that predates recording them.
+    private func stageMeta(by producer: String?, seconds: TimeInterval?) -> String? {
+        var parts: [String] = []
+        if let producer, !producer.isEmpty { parts.append(producer) }
+        if let seconds { parts.append("\(Format.latency(seconds))s") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// How the final text left BlarneyKey, phrased as the actor of that last stage.
+    private var deliveryLabel: String? {
+        switch session.destination {
+        case "paste": return "pasted"
+        case "type": return "typed out"
+        case "clipboard": return "copied to clipboard"
+        default: return session.destination
         }
     }
 
@@ -486,16 +540,6 @@ private struct SessionRow: View {
             .foregroundStyle(Theme.Colour.inkMuted48)
             .frame(width: 84, alignment: .leading)
             .padding(.top, 1)
-    }
-
-    /// "capture 45.32 · transcribe 2.36 · clean 0.00 · paste 0.03" — only the stages
-    /// this recording actually went through.
-    private var latency: String {
-        var parts = ["capture \(Format.latency(session.duration))"]
-        if let t = session.transcribeSeconds { parts.append("transcribe \(Format.latency(t))") }
-        if let c = session.cleanSeconds { parts.append("clean \(Format.latency(c))") }
-        if let p = session.pasteSeconds { parts.append("paste \(Format.latency(p))") }
-        return parts.joined(separator: " · ")
     }
 }
 

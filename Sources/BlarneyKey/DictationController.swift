@@ -101,6 +101,7 @@ final class DictationController: ObservableObject {
                 var finalText = raw
                 var cleanedText: String? = nil
                 var cleanSeconds: TimeInterval? = nil
+                var cleanModel: String? = nil
 
                 // A snippet replaces the utterance wholesale, so no tidying afterwards.
                 if let expansion = SnippetEngine.expand(raw, using: self.store.snippets) {
@@ -110,12 +111,15 @@ final class DictationController: ObservableObject {
                     finalText = await Cleanup.polish(raw)
                     cleanSeconds = Date().timeIntervalSince(cleanStart)
                     cleanedText = finalText
+                    cleanModel = "Apple Intelligence"
                 }
 
                 let session = Session(
                     date: Date(), text: finalText, appName: appName, bundleID: bundleID,
                     duration: duration, failure: nil,
-                    rawText: raw, cleanedText: cleanedText, destination: nil,
+                    rawText: raw, cleanedText: cleanedText,
+                    transcribeModel: settings.speechModelName, cleanModel: cleanModel,
+                    destination: nil,
                     transcribeSeconds: transcribeSeconds, cleanSeconds: cleanSeconds,
                     pasteSeconds: nil
                 )

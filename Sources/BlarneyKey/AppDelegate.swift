@@ -231,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingView(rootView: RootView(store: store, dictation: dictation))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 980, height: 700),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
         window.title = "BlarneyKey"
@@ -239,9 +239,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // redundant — and it renders dark-on-dark over the hero tile, which slides up
         // under the unified titlebar. Hide the text; the traffic lights stay.
         window.titleVisibility = .hidden
-        // Opaque, and not full-size content: a transparent titlebar over a scrolling
-        // view leaves the title sitting on top of the content as it passes underneath.
-        window.titlebarAppearsTransparent = false
+        // Full-size content with a transparent titlebar, so the parchment sidebar paints
+        // all the way to the top edge and no dark window chrome ever shows above it. The
+        // title text is hidden, so nothing sits over the scrolling content underneath.
+        window.titlebarAppearsTransparent = true
+        // A parchment window background, matching the design system's surface in both
+        // appearances, so any sliver the content does not cover reads as parchment, never
+        // black.
+        window.backgroundColor = NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return NSColor(hex: isDark ? 0x2C2C2E : 0xF5F5F7)
+        }
         window.contentView = hosting
         window.isReleasedWhenClosed = false
         window.center()
