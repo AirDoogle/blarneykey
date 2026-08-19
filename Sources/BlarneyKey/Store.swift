@@ -292,32 +292,46 @@ extension Store {
             session.succeeded && (range.cutoff(from: now).map { session.date >= $0 } ?? true)
         }
 
-        let start: Date
-        switch range {
-        case .today: start = calendar.startOfDay(for: now)
-        case .week, .month: start = range.cutoff(from: now) ?? now
-        case .year: start = range.cutoff(from: now) ?? now
-        case .allTime: start = recent.map(\.date).min() ?? now
-        }
+        // Buckets align to calendar boundaries (start of hour/day/month) and the last one is
+        // always the current period — this hour, today, this month — so today's activity is
+        // the final point on every range rather than falling off the end.
+        let component = range.bucket
+        let end = bucketStart(now, component, calendar)
 
+        let start: Date
         let bucketCount: Int
         switch range {
-        case .today: bucketCount = 24
-        case .week: bucketCount = 7
-        case .month: bucketCount = calendar.dateComponents([.day], from: start, to: now).day.map { $0 + 1 } ?? 30
-        case .year: bucketCount = 12
+        case .today:
+            // Only the hours elapsed so far, so the last point is the current hour.
+            start = calendar.startOfDay(for: now)
+            bucketCount = calendar.component(.hour, from: now) + 1
+        case .week:
+            bucketCount = 7
+            start = calendar.date(byAdding: .day, value: -(bucketCount - 1), to: end) ?? end
+        case .month:
+            // One point per calendar day, spanning the same ~month window as the headline
+            // figure and ending on today.
+            let from = bucketStart(range.cutoff(from: now) ?? now, .day, calendar)
+            bucketCount = (calendar.dateComponents([.day], from: from, to: end).day ?? 29) + 1
+            start = from
+        case .year:
+            bucketCount = 12
+            start = calendar.date(byAdding: .month, value: -(bucketCount - 1), to: end) ?? end
         case .allTime:
-            let months = calendar.dateComponents([.month], from: start, to: now).month ?? 0
-            bucketCount = max(1, months + 1)
+            start = bucketStart(recent.map(\.date).min() ?? now, .month, calendar)
+            bucketCount = (calendar.dateComponents([.month], from: start, to: end).month ?? 0) + 1
         }
+        let count = max(1, bucketCount)
 
-        var buckets = [Double](repeating: 0, count: max(1, bucketCount))
-        var counts = [Int](repeating: 0, count: max(1, bucketCount))
+        var buckets = [Double](repeating: 0, count: count)
+        var counts = [Int](repeating: 0, count: count)
 
         for session in recent {
-            let distance = calendar.dateComponents([range.bucket], from: start, to: session.date)
-            let index = (range.bucket == .hour ? distance.hour : (range.bucket == .day ? distance.day : distance.month)) ?? 0
-            guard index >= 0, index < buckets.count else { continue }
+            // Bucket both ends on the same boundary so the difference is a clean bucket count.
+            let bucketed = bucketStart(session.date, component, calendar)
+            let distance = calendar.dateComponents([component], from: start, to: bucketed)
+            let index = (component == .hour ? distance.hour : (component == .day ? distance.day : distance.month)) ?? -1
+            guard index >= 0, index < count else { continue }
 
             switch metric {
             case .words: buckets[index] += Double(session.wordCount)
@@ -345,10 +359,21 @@ extension Store {
             }
         }
 
-        let dates = (0..<buckets.count).map { index in
-            calendar.date(byAdding: range.bucket, value: index, to: start) ?? start
+        let dates = (0..<count).map { index in
+            calendar.date(byAdding: component, value: index, to: start) ?? start
         }
         return zip(dates, buckets).map { (date: $0, value: $1) }
+    }
+
+    /// Truncates a date to the start of its hour, day or month, so buckets line up on real
+    /// calendar boundaries instead of drifting with the time of day.
+    private func bucketStart(_ date: Date, _ component: Calendar.Component, _ calendar: Calendar) -> Date {
+        switch component {
+        case .hour: return calendar.dateInterval(of: .hour, for: date)?.start ?? date
+        case .day: return calendar.startOfDay(for: date)
+        case .month: return calendar.dateInterval(of: .month, for: date)?.start ?? date
+        default: return date
+        }
     }
 
     var sessionsToday: Int {
