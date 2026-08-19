@@ -34,6 +34,9 @@ struct Session: Codable, Identifiable {
     var cleanSeconds: TimeInterval?
     /// Seconds spent inserting the text into the focused app.
     var pasteSeconds: TimeInterval?
+    /// The input device the audio came from, e.g. "MacBook Pro Microphone". Nil for older
+    /// sessions, and whenever the default input could not be read.
+    var inputDevice: String?
 
     var wordCount: Int {
         text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).count

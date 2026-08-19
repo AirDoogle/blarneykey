@@ -7,12 +7,16 @@ final class Recorder {
     private var recorder: AVAudioRecorder?
     private(set) var startedAt: Date?
 
-    let fileURL: URL = {
+    /// Each Recorder writes to its own file, so dictation and the Settings mic test can
+    /// run their own captures without trampling each other's WAV.
+    let fileURL: URL
+
+    init(filename: String = "utterance.wav") {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("blarneykey", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("utterance.wav")
-    }()
+        fileURL = dir.appendingPathComponent(filename)
+    }
 
     /// Returns false if the microphone could not be opened.
     func start() -> Bool {

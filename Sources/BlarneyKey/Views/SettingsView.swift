@@ -1,9 +1,17 @@
 import SwiftUI
+import CoreAudio
 
 struct SettingsView: View {
     @ObservedObject var store: Store
     @State private var capturingKey = false
     @State private var testCountdown = 0
+
+    // Test-microphone state.
+    @StateObject private var mic = MicTester()
+    @State private var inputDevices: [AudioDevices.InputDevice] = []
+    @State private var selectedInput: AudioDeviceID = 0
+    @State private var inputVolume: Double = 0
+    @State private var volumeSettable = false
 
     var body: some View {
         Page(
@@ -15,6 +23,7 @@ struct SettingsView: View {
             insertionSection
             cleanupSection
             speechSection
+            microphoneSection
             modelSection
             privacySection
         }
@@ -30,6 +39,8 @@ struct SettingsView: View {
                 capturingKey = false
             }
         }
+        .onAppear { refreshDevices() }
+        .onDisappear { mic.stop() }
     }
 
     // MARK: - Appearance
@@ -257,8 +268,124 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Model
+    // MARK: - Microphone
 
+    private var microphoneSection: some View {
+        Section_(label: "MICROPHONE", index: 6) {
+            Row(
+                title: "Input device",
+                detail: "BlarneyKey records from your Mac's input device. Pick one here to set it and try it out."
+            ) {
+                if inputDevices.isEmpty {
+                    Text("None found")
+                        .font(Theme.Text.captionStrong())
+                        .foregroundStyle(Theme.Colour.warn)
+                } else {
+                    Picker("", selection: Binding(
+                        get: { selectedInput },
+                        set: { id in
+                            selectedInput = id
+                            AudioDevices.setDefaultInput(id)
+                            loadVolume()
+                        }
+                    )) {
+                        ForEach(inputDevices) { Text($0.name).tag($0.id) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 220)
+                }
+            }
+
+            if volumeSettable {
+                RowDivider()
+                Row(title: "Input volume", detail: "The system input gain for this microphone.") {
+                    HStack(spacing: Theme.Space.xs) {
+                        Slider(value: Binding(
+                            get: { inputVolume },
+                            set: { inputVolume = $0; AudioDevices.setInputVolume(Float($0), of: selectedInput) }
+                        ), in: 0...1)
+                        .frame(width: 160)
+                        Text("\(Int(inputVolume * 100))%")
+                            .font(Theme.Text.caption())
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.Colour.inkMuted48)
+                            .frame(width: 36, alignment: .trailing)
+                    }
+                }
+            }
+
+            RowDivider()
+            Row(
+                title: "Test microphone",
+                detail: mic.isRunning
+                    ? "Listening — speak, and what BlarneyKey hears appears below."
+                    : "Records and transcribes on your Mac, so you can hear which mic reads you cleanest."
+            ) {
+                Button(mic.isRunning ? "Stop" : "Test microphone") {
+                    mic.toggle(settings: store.settings)
+                }
+                .buttonStyle(PillButtonStyle())
+                .disabled(!modelReady)
+            }
+
+            if mic.isRunning {
+                LevelMeter(level: mic.level)
+                    .padding(.horizontal, Theme.Space.md)
+                    .padding(.bottom, Theme.Space.xs)
+            }
+
+            RowDivider()
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text("LIVE TRANSCRIPTION").eyebrow()
+                Text(transcriptText)
+                    .font(mic.transcript.isEmpty
+                          ? Theme.Text.body()
+                          : .system(size: 13, design: .monospaced))
+                    .foregroundStyle(mic.transcript.isEmpty
+                                     ? Theme.Colour.inkMuted48
+                                     : Theme.Colour.inkMuted80)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
+                    .padding(Theme.Space.sm)
+                    .cardSurface(Theme.Colour.parchment, radius: Theme.Radius.md, bordered: true)
+            }
+            .padding(.horizontal, Theme.Space.md)
+            .padding(.vertical, Theme.Space.sm)
+
+            if !modelReady {
+                RowDivider()
+                Note(kind: .warn,
+                     text: "No speech model is loaded, so the test can't transcribe. Set one up under Model below.")
+            }
+            if let error = mic.error {
+                RowDivider()
+                Note(kind: .warn, text: error)
+            }
+
+            RowDivider()
+            Note(kind: .plain,
+                 text: "Changing the input device here sets your Mac's input device — the same one BlarneyKey dictates from. Recording and transcription stay on your Mac.")
+        }
+    }
+
+    private var transcriptText: String {
+        if !mic.transcript.isEmpty { return mic.transcript }
+        return mic.isRunning ? "Listening…" : "Press Test microphone and say a few words."
+    }
+
+    private func refreshDevices() {
+        inputDevices = AudioDevices.inputDevices()
+        selectedInput = AudioDevices.defaultInputID ?? inputDevices.first?.id ?? 0
+        loadVolume()
+    }
+
+    private func loadVolume() {
+        volumeSettable = selectedInput != 0 && AudioDevices.inputVolumeSettable(of: selectedInput)
+        inputVolume = Double(AudioDevices.inputVolume(of: selectedInput) ?? 0)
+    }
+
+    // MARK: - Model
     /// A WhisperKit model folder discovered on disk: the folder name, its full path, and
     /// the tensor prefix it was assembled with (read from the marker `setup.sh` leaves).
     private struct SpeechModel: Hashable, Identifiable {
@@ -294,7 +421,7 @@ struct SettingsView: View {
 
     private var modelSection: some View {
         let models = discoveredModels()
-        return Section_(label: "MODEL", index: 6) {
+        return Section_(label: "MODEL", index: 7) {
             Row(
                 title: "Speech model",
                 detail: "Transcription runs on WhisperKit. Pick which model it loads — larger is more accurate, smaller is faster."
@@ -351,7 +478,7 @@ struct SettingsView: View {
     // MARK: - Privacy
 
     private var privacySection: some View {
-        Section_(label: "PRIVACY", index: 7) {
+        Section_(label: "PRIVACY", index: 8) {
             Row(title: "History",
                 detail: "\(store.sessions.count) sessions stored on this Mac, and nowhere else.") {
                 Button("Clear") { store.clearHistory() }
@@ -379,5 +506,24 @@ struct SettingsView: View {
         Row(title: title, detail: detail) {
             Toggle("", isOn: binding(path)).labelsHidden()
         }
+    }
+}
+
+/// A live input-level bar for the mic test — the surface fills with the one accent colour,
+/// no numbers, since it only has to show that sound is getting in.
+private struct LevelMeter: View {
+    let level: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.Colour.dividerSoft)
+                Capsule()
+                    .fill(Theme.Colour.primary)
+                    .frame(width: max(2, geo.size.width * CGFloat(min(1, max(0, level)))))
+                    .animation(Theme.Motion.interaction, value: level)
+            }
+        }
+        .frame(height: 6)
     }
 }

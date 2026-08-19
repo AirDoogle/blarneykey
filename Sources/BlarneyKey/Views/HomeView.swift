@@ -447,6 +447,7 @@ private struct SessionRow: View {
             stage("Raw",
                   text: session.rawText ?? session.text,
                   by: session.transcribeModel ?? Store.shared.settings.speechModelName,
+                  device: session.inputDevice,
                   seconds: session.transcribeSeconds)
             if let cleaned = session.cleanedText, !cleaned.isEmpty {
                 stage("Cleaned",
@@ -478,12 +479,13 @@ private struct SessionRow: View {
     private func stage(_ label: String,
                        text: String?,
                        by producer: String?,
+                       device: String? = nil,
                        seconds: TimeInterval?) -> some View {
         let value = (text?.isEmpty == false) ? text : nil
         return VStack(alignment: .leading, spacing: Theme.Space.xxs) {
             HStack(alignment: .firstTextBaseline, spacing: Theme.Space.xs) {
                 Text(label).eyebrow()
-                if value != nil, let meta = stageMeta(by: producer, seconds: seconds) {
+                if value != nil, let meta = stageMeta(by: producer, device: device, seconds: seconds) {
                     Text(meta)
                         .font(Theme.Text.caption())
                         .foregroundStyle(Theme.Colour.inkMuted48)
@@ -501,11 +503,13 @@ private struct SessionRow: View {
         }
     }
 
-    /// "WhisperKit · distil · 2.36s" — the model and the time it took, either of which may
-    /// be missing on an older session that predates recording them.
-    private func stageMeta(by producer: String?, seconds: TimeInterval?) -> String? {
+    /// "WhisperKit · distil · MacBook Pro Microphone · 2.36s" — the model, the microphone it
+    /// heard, and how long it took, any of which may be missing on an older session that
+    /// predates recording them.
+    private func stageMeta(by producer: String?, device: String? = nil, seconds: TimeInterval?) -> String? {
         var parts: [String] = []
         if let producer, !producer.isEmpty { parts.append(producer) }
+        if let device, !device.isEmpty { parts.append(device) }
         if let seconds { parts.append("\(Format.latency(seconds))s") }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

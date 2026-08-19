@@ -19,6 +19,10 @@ final class DictationController: ObservableObject {
     /// transcript has to go back where the cursor was.
     private var targetApp: NSRunningApplication?
 
+    /// The input device dictation is recording from, captured when recording begins so the
+    /// history can show which microphone produced each transcript.
+    private var inputDeviceName: String?
+
     var isRecording: Bool {
         if case .recording = state { return true }
         return false
@@ -45,6 +49,7 @@ final class DictationController: ObservableObject {
             fail("Could not open the microphone. Check Privacy & Security → Microphone.")
             return
         }
+        inputDeviceName = AudioDevices.defaultInputName
         state = .recording(locked: locked)
         play("Tink")
     }
@@ -83,6 +88,7 @@ final class DictationController: ObservableObject {
         let app = targetApp
         let bundleID = app?.bundleIdentifier ?? ""
         let appName = app?.localizedName ?? "Unknown"
+        let device = inputDeviceName
 
         Task { [weak self] in
             guard let self else { return }
@@ -121,7 +127,8 @@ final class DictationController: ObservableObject {
                     transcribeModel: settings.speechModelName, cleanModel: cleanModel,
                     destination: nil,
                     transcribeSeconds: transcribeSeconds, cleanSeconds: cleanSeconds,
-                    pasteSeconds: nil
+                    pasteSeconds: nil,
+                    inputDevice: device
                 )
                 await MainActor.run { self.deliver(session) }
             } catch {
