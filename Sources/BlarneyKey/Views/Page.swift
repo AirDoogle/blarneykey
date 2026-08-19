@@ -29,6 +29,10 @@ struct Page<Content: View>: View {
             .frame(maxWidth: 820, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // Reserve scrollable room past the last section so it clears the window's bottom
+        // edge — without it the final card (History, on a long Settings page) sat flush
+        // against the frame and read as cut off even when fully scrolled.
+        .contentMargins(.bottom, Theme.Space.xxl, for: .scrollContent)
         .background(Theme.Colour.parchment)
         .navigationTitle(title)
     }

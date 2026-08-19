@@ -26,6 +26,15 @@ final class MicTester: ObservableObject {
         isRunning ? stop() : start(settings)
     }
 
+    /// Re-open the microphone from scratch — used when the input device changes out from
+    /// under a running test (the one it was listening to was unplugged, so macOS moved the
+    /// default) so it picks up the new default instead of a device that is gone.
+    func restart(settings: Settings) {
+        guard isRunning else { return }
+        stop()
+        start(settings)
+    }
+
     func start(_ settings: Settings) {
         guard !isRunning else { return }
         self.settings = settings

@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var selectedInput: AudioDeviceID = 0
     @State private var inputVolume: Double = 0
     @State private var volumeSettable = false
+    @State private var deviceObserver: InputDeviceObserver?
 
     var body: some View {
         Page(
@@ -39,8 +40,17 @@ struct SettingsView: View {
                 capturingKey = false
             }
         }
-        .onAppear { refreshDevices() }
-        .onDisappear { mic.stop() }
+        .onAppear {
+            refreshDevices()
+            // Follow the mic live: if the selected device is unplugged, macOS moves the
+            // default (usually back to the built-in mic) and the picker updates to match.
+            deviceObserver = InputDeviceObserver { devicesChanged() }
+        }
+        .onDisappear {
+            mic.stop()
+            deviceObserver?.stop()
+            deviceObserver = nil
+        }
     }
 
     // MARK: - Appearance
@@ -378,6 +388,17 @@ struct SettingsView: View {
         inputDevices = AudioDevices.inputDevices()
         selectedInput = AudioDevices.defaultInputID ?? inputDevices.first?.id ?? 0
         loadVolume()
+    }
+
+    /// The device list or default input changed under us. Re-read both, and if a running
+    /// test was listening to the device that just vanished, restart it on the new default
+    /// so the live transcription keeps working rather than hanging on a dead mic.
+    private func devicesChanged() {
+        let previous = selectedInput
+        refreshDevices()
+        if mic.isRunning && selectedInput != previous {
+            mic.restart(settings: store.settings)
+        }
     }
 
     private func loadVolume() {

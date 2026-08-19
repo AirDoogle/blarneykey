@@ -138,3 +138,49 @@ enum AudioDevices {
         return AudioObjectIsPropertySettable(id, &addr, &settable) == noErr && settable.boolValue
     }
 }
+
+/// Watches CoreAudio for the two things that change which microphone is live: the set of
+/// devices (one unplugged or plugged in) and the system default input, which macOS reassigns
+/// on its own when the current default disappears — a Bluetooth headset going flat, a USB mic
+/// pulled out. BlarneyKey records from whatever the default is at the moment it starts, so
+/// dictation already follows that reassignment; this just lets the Settings UI re-read the
+/// list and selection instead of showing a device that is no longer there.
+final class InputDeviceObserver {
+    private var block: AudioObjectPropertyListenerBlock?
+    private let selectors: [AudioObjectPropertySelector] = [
+        kAudioHardwarePropertyDevices,
+        kAudioHardwarePropertyDefaultInputDevice
+    ]
+
+    init(onChange: @escaping () -> Void) {
+        let block: AudioObjectPropertyListenerBlock = { _, _ in
+            DispatchQueue.main.async { onChange() }
+        }
+        self.block = block
+        forEachAddress { addr in
+            AudioObjectAddPropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &addr, DispatchQueue.main, block)
+        }
+    }
+
+    func stop() {
+        guard let block else { return }
+        forEachAddress { addr in
+            AudioObjectRemovePropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &addr, DispatchQueue.main, block)
+        }
+        self.block = nil
+    }
+
+    deinit { stop() }
+
+    private func forEachAddress(_ body: (inout AudioObjectPropertyAddress) -> Void) {
+        for selector in selectors {
+            var addr = AudioObjectPropertyAddress(
+                mSelector: selector,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            body(&addr)
+        }
+    }
+}

@@ -86,7 +86,8 @@ struct HomeView: View {
                     value: Format.hours(stats.timeSaved(typingWPM: store.settings.typingWPM)),
                     footnote: "against typing at \(Int(store.settings.typingWPM)) wpm",
                     points: points(.timeSaved),
-                    valueFormat: { Format.hours($0) }
+                    valueFormat: { Format.hours($0) },
+                    chartKind: .bars
                 )
                 .reveal(1)
 
@@ -108,6 +109,8 @@ struct HomeView: View {
                     value: Format.count(stats.count(for: unit)),
                     footnote: stats.sessions == 1 ? "across 1 session" : "across \(stats.sessions) sessions",
                     points: points(unit == .words ? .words : .tokens),
+                    valueFormat: { Format.count(Int($0)) },
+                    chartKind: .bars,
                     accessory: AnyView(unitPicker)
                 )
                 .reveal(3)
@@ -269,11 +272,17 @@ struct HomeView: View {
 /// The store utility card: white, 18pt radius, 1pt hairline, 24pt padding, no shadow.
 /// The number carries the weight through type, not through a coloured fill.
 struct StatCard: View {
+    /// Which visual fits the metric: a line for a rate sampled over time (speaking speed,
+    /// average session), bars for a quantity that accumulates within each period (words,
+    /// time saved) and resets to a new total each bucket.
+    enum ChartKind { case line, bars }
+
     let label: String
     let value: String
     let footnote: String?
     var points: [SparklinePoint]? = nil
     var valueFormat: ((Double) -> String)? = nil
+    var chartKind: ChartKind = .line
     /// An optional control scoped to this one card, e.g. the Words/Tokens toggle —
     /// lives beside the eyebrow rather than floating outside the card it affects.
     var accessory: AnyView? = nil
@@ -296,10 +305,20 @@ struct StatCard: View {
                 .padding(.top, 2)
 
             if let points, points.count > 1 {
-                Sparkline(
-                    points: points,
-                    valueFormat: valueFormat ?? { String(format: "%.0f", $0) }
-                )
+                Group {
+                    switch chartKind {
+                    case .line:
+                        Sparkline(
+                            points: points,
+                            valueFormat: valueFormat ?? { String(format: "%.0f", $0) }
+                        )
+                    case .bars:
+                        MiniBars(
+                            points: points,
+                            valueFormat: valueFormat ?? { String(format: "%.0f", $0) }
+                        )
+                    }
+                }
                 .padding(.top, Theme.Space.xxs)
             }
 
