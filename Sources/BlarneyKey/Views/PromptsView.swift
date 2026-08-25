@@ -7,7 +7,7 @@ struct PromptsView: View {
     var body: some View {
         Page(
             title: "Prompts",
-            lead: "Say a trigger phrase and BlarneyKey pastes the full text instead. For example, say \"Get Things Done\"."
+            lead: "Say the name of a saved prompt and BlarneyKey pastes the whole thing instead of the words you said. Say \"Get Things Done\" and the full template lands."
         ) {
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 HStack {
