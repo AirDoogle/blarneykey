@@ -31,7 +31,7 @@ inference locally.
   character for apps that refuse a synthetic paste.
 - **Floating pill** while recording: live input level, elapsed time, stop button. It's a
   non-activating panel, so it never steals focus from what you're dictating into.
-- **Snippets** — say "weekly business review" and it pastes the whole template. Matching
+- **Prompts** — say "weekly business review" and it pastes the whole template. Matching
   ignores case, punctuation and messy spacing, because speech models add all three.
 - **App allowlist** — restrict where dictation can paste, per app, with an *allow
   everything* switch that's on by default. On your own machine there's no reason to
@@ -108,7 +108,7 @@ orange triangle when something went wrong (the menu says what). `⌘O` opens the
 `⌘D` starts and stops dictation without the hotkey.
 
 Settings live in the window, not in `defaults`. Everything is stored in
-`~/Library/Application Support/BlarneyKey/state.json` — settings, allowlist, snippets and
+`~/Library/Application Support/BlarneyKey/state.json` — settings, allowlist, prompts and
 history, one readable file you can back up or edit.
 
 ## How it fits together
@@ -118,12 +118,12 @@ history, one readable file you can back up or edit.
 | `HotKeyMonitor` | Press/release/double-tap plus Escape, for modifiers and ordinary keys alike. Modifier direction comes from the device-dependent flag bit, which is also what separates the right-hand key from the left |
 | `Recorder` | `AVAudioRecorder` straight to 16 kHz mono WAV, the format Whisper wants, with no sample-rate plumbing to get wrong |
 | `Transcriber` | Runs `whisperkit-cli`; stdout is the transcript and nothing else |
-| `SnippetEngine` | Normalises case, punctuation and spacing, then matches whole utterances only |
+| `PromptEngine` | Normalises case, punctuation and spacing, then matches whole utterances only |
 | `Cleanup` | Foundation Models polish, with a sanity check on the result |
 | `TextInserter` | Clipboard plus a synthesised ⌘V chord, then restores your clipboard; or direct Unicode typing |
 | `DictationController` | Sequences all of the above and writes the history entry |
 | `Store` | One JSON file, plus the stats derived from it |
-| `Views/` | SwiftUI: Home, Apps, Snippets, Settings |
+| `Views/` | SwiftUI: Home, Prompts, Settings (Apps lives inside Settings) |
 
 **Why the ⌘V chord is sent as four events:** setting `.maskCommand` on the V keypress is
 enough for native AppKit apps, but Chromium-based ones — Notion, Slack, VS Code, Discord —

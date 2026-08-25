@@ -18,7 +18,7 @@ struct Session: Codable, Identifiable {
     // MARK: - Recording detail (all optional, added after the first releases, so an
     // older state.json still decodes — these simply read as nil for past sessions).
 
-    /// The transcript straight out of the speech model, before any snippet or cleanup.
+    /// The transcript straight out of the speech model, before any prompt or cleanup.
     var rawText: String?
     /// The transcript after the cleanup model, when it ran. Nil when cleanup was skipped.
     var cleanedText: String?
@@ -69,9 +69,9 @@ struct AllowedApp: Codable, Identifiable, Hashable {
     var id: String { bundleID }
 }
 
-// MARK: - Snippets
+// MARK: - Prompts
 
-struct Snippet: Codable, Identifiable, Hashable {
+struct Prompt: Codable, Identifiable, Hashable {
     var id = UUID()
     var trigger: String
     var expansion: String

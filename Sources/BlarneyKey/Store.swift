@@ -8,7 +8,7 @@ final class Store: ObservableObject {
 
     @Published var settings = Settings()
     @Published var allowedApps: [AllowedApp] = []
-    @Published var snippets: [Snippet] = []
+    @Published var prompts: [Prompt] = []
     @Published private(set) var sessions: [Session] = []
 
     /// Keep the history bounded so the file stays small and the UI stays quick.
@@ -18,8 +18,15 @@ final class Store: ObservableObject {
     private struct Persisted: Codable {
         var settings: Settings
         var allowedApps: [AllowedApp]
-        var snippets: [Snippet]
+        var prompts: [Prompt]
         var sessions: [Session]
+
+        /// Prompts were called snippets until 2026-08-25. The key on disk keeps the old
+        /// name, so an existing state.json still decodes instead of resetting to defaults.
+        enum CodingKeys: String, CodingKey {
+            case settings, allowedApps, sessions
+            case prompts = "snippets"
+        }
     }
 
     private static var fileURL: URL {
@@ -39,7 +46,7 @@ final class Store: ObservableObject {
     private func load() {
         guard let data = try? Data(contentsOf: Self.fileURL) else {
             allowedApps = Self.defaultAllowlist()
-            snippets = Self.defaultSnippets()
+            prompts = Self.defaultPrompts()
             return
         }
         let decoder = JSONDecoder()
@@ -47,12 +54,12 @@ final class Store: ObservableObject {
         guard let state = try? decoder.decode(Persisted.self, from: data) else {
             NSLog("BlarneyKey: state.json could not be read; starting fresh")
             allowedApps = Self.defaultAllowlist()
-            snippets = Self.defaultSnippets()
+            prompts = Self.defaultPrompts()
             return
         }
         settings = state.settings
         allowedApps = state.allowedApps
-        snippets = state.snippets
+        prompts = state.prompts
         sessions = state.sessions
     }
 
@@ -68,7 +75,7 @@ final class Store: ObservableObject {
         let state = Persisted(
             settings: settings,
             allowedApps: allowedApps,
-            snippets: snippets,
+            prompts: prompts,
             sessions: Array(sessions.prefix(historyLimit))
         )
         let encoder = JSONEncoder()
@@ -113,17 +120,17 @@ final class Store: ObservableObject {
         save()
     }
 
-    func upsert(_ snippet: Snippet) {
-        if let index = snippets.firstIndex(where: { $0.id == snippet.id }) {
-            snippets[index] = snippet
+    func upsert(_ prompt: Prompt) {
+        if let index = prompts.firstIndex(where: { $0.id == prompt.id }) {
+            prompts[index] = prompt
         } else {
-            snippets.append(snippet)
+            prompts.append(prompt)
         }
         save()
     }
 
-    func remove(_ snippet: Snippet) {
-        snippets.removeAll { $0.id == snippet.id }
+    func remove(_ prompt: Prompt) {
+        prompts.removeAll { $0.id == prompt.id }
         save()
     }
 
@@ -143,10 +150,10 @@ final class Store: ObservableObject {
         return seeds.map { AllowedApp(bundleID: $0, name: displayName(for: $0) ?? $0) }
     }
 
-    private static func defaultSnippets() -> [Snippet] {
+    private static func defaultPrompts() -> [Prompt] {
         // The trailing spaces after each dash are deliberate: they leave the cursor ready
         // to type, and are written as escapes so no editor strips them.
-        [Snippet(
+        [Prompt(
             trigger: "Get Things Done",
             expansion: """
                 ## What's the next action?

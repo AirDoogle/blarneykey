@@ -2,14 +2,13 @@ import SwiftUI
 
 struct RootView: View {
     enum Tab: String, CaseIterable, Identifiable {
-        case home, apps, snippets, settings
+        case home, prompts, settings
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .home: return "Home"
-            case .apps: return "Apps"
-            case .snippets: return "Snippets"
+            case .prompts: return "Prompts"
             case .settings: return "Settings"
             }
         }
@@ -17,8 +16,7 @@ struct RootView: View {
         var symbol: String {
             switch self {
             case .home: return "house"
-            case .apps: return "square.grid.2x2"
-            case .snippets: return "text.badge.plus"
+            case .prompts: return "text.badge.plus"
             case .settings: return "gearshape"
             }
         }
@@ -38,8 +36,7 @@ struct RootView: View {
                 if !permissions.hasAccessibility { permissionBanner }
                 switch tab {
                 case .home: HomeView(store: store, dictation: dictation)
-                case .apps: AppsView(store: store)
-                case .snippets: SnippetsView(store: store)
+                case .prompts: PromptsView(store: store)
                 case .settings: SettingsView(store: store)
                 }
             }
@@ -116,7 +113,6 @@ struct RootView: View {
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
 
-            statusBox
             credit
         }
         // An opaque surface that paints all the way to the top edge: the default sidebar
@@ -153,41 +149,5 @@ struct RootView: View {
         }
         .buttonStyle(.plain)
         .help("corkaiconsulting.ie")
-    }
-
-    /// Status, not chrome: a pearl plate with a hairline, no shadow.
-    private var statusBox: some View {
-        VStack(spacing: 5) {
-            row("Hotkey", store.settings.bindingLabel)
-            row("Insertion", store.settings.insertionMode == .paste ? "Paste" : "Type")
-            row("Cleanup", cleanupState)
-            row("Speech model", modelReady ? "Ready" : "Missing")
-            row("Sessions today", "\(store.sessionsToday)")
-        }
-        .padding(Theme.Space.sm)
-        .cardSurface(Theme.Colour.canvas, radius: Theme.Radius.md)
-        .padding(Theme.Space.sm)
-    }
-
-    private func row(_ label: String, _ value: String) -> some View {
-        HStack(spacing: Theme.Space.xs) {
-            Text(label)
-                .font(Theme.Text.caption())
-                .foregroundStyle(Theme.Colour.inkMuted48)
-            Spacer(minLength: Theme.Space.xxs)
-            Text(value)
-                .font(Theme.Text.captionStrong())
-                .foregroundStyle(Theme.Colour.inkMuted80)
-                .lineLimit(1)
-        }
-    }
-
-    private var cleanupState: String {
-        guard Cleanup.isAvailable else { return "Unavailable" }
-        return store.settings.cleanupEverywhere ? "On" : "Per app"
-    }
-
-    private var modelReady: Bool {
-        FileManager.default.fileExists(atPath: store.settings.modelPath)
     }
 }

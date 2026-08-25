@@ -23,6 +23,7 @@ struct SettingsView: View {
             hotkeySection
             insertionSection
             cleanupSection
+            AppsSettings(store: store, index: 5)
             speechSection
             microphoneSection
             modelSection
@@ -238,7 +239,7 @@ struct SettingsView: View {
             if Cleanup.isAvailable {
                 RowDivider()
                 Note(kind: .plain,
-                     text: "With this off, cleanup still runs for individual apps you switch Format on for in the Apps tab.")
+                     text: "With this off, cleanup still runs for individual apps you switch Format on under Apps below.")
             }
         }
     }
@@ -246,7 +247,7 @@ struct SettingsView: View {
     // MARK: - Speech
 
     private var speechSection: some View {
-        Section_(label: "SPEECH", index: 5) {
+        Section_(label: "SPEECH", index: 8) {
             Row(title: "Language", detail: "Leave empty to let the model detect it.") {
                 TextField("en", text: Binding(
                     get: { store.settings.language ?? "" },
@@ -281,7 +282,7 @@ struct SettingsView: View {
     // MARK: - Microphone
 
     private var microphoneSection: some View {
-        Section_(label: "MICROPHONE", index: 6) {
+        Section_(label: "MICROPHONE", index: 9) {
             Row(
                 title: "Input device",
                 detail: "BlarneyKey records from your Mac's input device. Pick one here to set it and try it out."
@@ -442,7 +443,7 @@ struct SettingsView: View {
 
     private var modelSection: some View {
         let models = discoveredModels()
-        return Section_(label: "MODEL", index: 7) {
+        return Section_(label: "MODEL", index: 10) {
             Row(
                 title: "Speech model",
                 detail: "Transcription runs on WhisperKit. Pick which model it loads — larger is more accurate, smaller is faster."
@@ -499,7 +500,7 @@ struct SettingsView: View {
     // MARK: - Privacy
 
     private var privacySection: some View {
-        Section_(label: "PRIVACY", index: 8) {
+        Section_(label: "PRIVACY", index: 11) {
             Row(title: "History",
                 detail: "\(store.sessions.count) sessions stored on this Mac, and nowhere else.") {
                 Button("Clear") { store.clearHistory() }

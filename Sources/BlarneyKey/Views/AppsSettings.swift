@@ -1,17 +1,18 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct AppsView: View {
+/// The allowlist, as a group of sections inside Settings rather than its own tab: where
+/// dictation may paste, and which apps get the cleanup pass. `index` starts the reveal
+/// stagger where the surrounding Settings page left off.
+struct AppsSettings: View {
     @ObservedObject var store: Store
+    var index: Int
     @State private var bundleIDField = ""
     @State private var showingPicker = false
 
     var body: some View {
-        Page(
-            title: "Apps",
-            lead: "Choose where dictation is allowed to paste. Turn on Format for an app to tidy its dictation with the on-device cleanup model."
-        ) {
-            Section_(label: "SCOPE", index: 1) {
+        Group {
+            Section_(label: "APPS", index: index) {
                 Row(
                     title: "Allow every app",
                     detail: "Sensible on your own machine. An allowlist is for when you want the discipline."
@@ -22,10 +23,13 @@ struct AppsView: View {
                     ))
                     .labelsHidden()
                 }
+                RowDivider()
+                Note(kind: .plain,
+                     text: "Turn on Format for an app to tidy its dictation with the on-device cleanup model.")
             }
 
             if store.settings.allowAllApps {
-                Section_(label: "ALLOWLIST", index: 2) {
+                Section_(label: "ALLOWLIST", index: index + 1) {
                     Note(kind: .plain,
                          text: "Every app is allowed. Turn the switch off to restrict dictation to a chosen list.")
                 }
@@ -65,18 +69,18 @@ struct AppsView: View {
                     Note(kind: .warn,
                          text: "The list is empty, so dictation has nowhere to go. Add an app or turn Allow every app back on.")
                 }
-                ForEach(Array(store.allowedApps.enumerated()), id: \.element.id) { index, app in
-                    if index > 0 { RowDivider() }
+                ForEach(Array(store.allowedApps.enumerated()), id: \.element.id) { position, app in
+                    if position > 0 { RowDivider() }
                     AppRow(store: store, app: app)
                 }
             }
             .cardSurface()
         }
-        .reveal(2)
+        .reveal(index + 1)
     }
 
     private var addByBundleID: some View {
-        Section_(label: "ADD BY BUNDLE ID", index: 3) {
+        Section_(label: "ADD BY BUNDLE ID", index: index + 2) {
             Row(title: "Bundle identifier",
                 detail: "For anything that is not a normal app in /Applications.") {
                 HStack(spacing: Theme.Space.xs) {

@@ -1,7 +1,7 @@
 import AppKit
 import AVFoundation
 
-/// Drives one dictation: record, transcribe, expand snippets, tidy up, paste, log.
+/// Drives one dictation: record, transcribe, expand prompts, tidy up, paste, log.
 final class DictationController: ObservableObject {
     enum State: Equatable {
         case idle
@@ -109,8 +109,8 @@ final class DictationController: ObservableObject {
                 var cleanSeconds: TimeInterval? = nil
                 var cleanModel: String? = nil
 
-                // A snippet replaces the utterance wholesale, so no tidying afterwards.
-                if let expansion = SnippetEngine.expand(raw, using: self.store.snippets) {
+                // A prompt replaces the utterance wholesale, so no tidying afterwards.
+                if let expansion = PromptEngine.expand(raw, using: self.store.prompts) {
                     finalText = expansion
                 } else if self.store.shouldFormat(bundleID: bundleID) {
                     let cleanStart = Date()

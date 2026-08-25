@@ -1,31 +1,31 @@
 import SwiftUI
 
-struct SnippetsView: View {
+struct PromptsView: View {
     @ObservedObject var store: Store
-    @State private var editing: Snippet?
+    @State private var editing: Prompt?
 
     var body: some View {
         Page(
-            title: "Snippets",
+            title: "Prompts",
             lead: "Say a trigger phrase and BlarneyKey pastes the full text instead. For example, say \"Get Things Done\"."
         ) {
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 HStack {
-                    Text("SNIPPETS (\(store.snippets.count))").eyebrow()
+                    Text("PROMPTS (\(store.prompts.count))").eyebrow()
                     Spacer()
-                    Button("New snippet") {
-                        editing = Snippet(trigger: "", expansion: "")
+                    Button("New prompt") {
+                        editing = Prompt(trigger: "", expansion: "")
                     }
                     .buttonStyle(PillButtonStyle(prominent: false))
                 }
 
                 VStack(spacing: 0) {
-                    if store.snippets.isEmpty {
-                        Note(kind: .plain, text: "No snippets yet.")
+                    if store.prompts.isEmpty {
+                        Note(kind: .plain, text: "No prompts yet.")
                     }
-                    ForEach(Array(store.snippets.enumerated()), id: \.element.id) { index, snippet in
+                    ForEach(Array(store.prompts.enumerated()), id: \.element.id) { index, prompt in
                         if index > 0 { RowDivider() }
-                        row(snippet)
+                        row(prompt)
                     }
                 }
                 .cardSurface()
@@ -37,8 +37,8 @@ struct SnippetsView: View {
                      text: "The whole utterance has to be the trigger phrase, so a trigger buried in a sentence will not swallow it. Case, punctuation and extra spaces are ignored.")
             }
         }
-        .sheet(item: $editing) { snippet in
-            SnippetEditor(snippet: snippet) { saved in
+        .sheet(item: $editing) { prompt in
+            PromptEditor(prompt: prompt) { saved in
                 store.upsert(saved)
                 editing = nil
             } onCancel: {
@@ -47,9 +47,9 @@ struct SnippetsView: View {
         }
     }
 
-    private func row(_ snippet: Snippet) -> some View {
+    private func row(_ prompt: Prompt) -> some View {
         Button {
-            editing = snippet
+            editing = prompt
         } label: {
             HStack(alignment: .top, spacing: Theme.Space.sm) {
                 Image(systemName: "text.quote")
@@ -58,11 +58,11 @@ struct SnippetsView: View {
                     .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(snippet.trigger)
+                    Text(prompt.trigger)
                         .font(Theme.Text.bodyStrong())
                         .tracking(Theme.Text.Track.body)
                         .foregroundStyle(Theme.Colour.ink)
-                    Text(snippet.expansion.split(separator: "\n").first.map(String.init) ?? "")
+                    Text(prompt.expansion.split(separator: "\n").first.map(String.init) ?? "")
                         .font(Theme.Text.caption())
                         .foregroundStyle(Theme.Colour.inkMuted48)
                         .lineLimit(1)
@@ -71,7 +71,7 @@ struct SnippetsView: View {
                 Spacer(minLength: Theme.Space.sm)
 
                 Button {
-                    store.remove(snippet)
+                    store.remove(prompt)
                 } label: {
                     Image(systemName: "trash")
                         .font(.system(size: 11))
@@ -88,21 +88,21 @@ struct SnippetsView: View {
     }
 }
 
-private struct SnippetEditor: View {
-    @State var snippet: Snippet
-    let onSave: (Snippet) -> Void
+private struct PromptEditor: View {
+    @State var prompt: Prompt
+    let onSave: (Prompt) -> Void
     let onCancel: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
-            Text(snippet.trigger.isEmpty ? "New snippet" : "Edit snippet")
+            Text(prompt.trigger.isEmpty ? "New prompt" : "Edit prompt")
                 .font(Theme.Text.displayMd())
                 .tracking(Theme.Text.Track.display)
                 .foregroundStyle(Theme.Colour.ink)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("TRIGGER PHRASE").eyebrow()
-                TextField("weekly business review", text: $snippet.trigger)
+                TextField("weekly business review", text: $prompt.trigger)
                     .textFieldStyle(.roundedBorder)
                     .font(Theme.Text.body())
                 Text("Matching ignores case and punctuation.")
@@ -112,7 +112,7 @@ private struct SnippetEditor: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("EXPANSION").eyebrow()
-                TextEditor(text: $snippet.expansion)
+                TextEditor(text: $prompt.expansion)
                     .font(.system(size: 12, design: .monospaced))
                     .frame(minHeight: 190)
                     .padding(4)
@@ -123,11 +123,11 @@ private struct SnippetEditor: View {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(PillButtonStyle(prominent: false))
-                Button("Save") { onSave(snippet) }
+                Button("Save") { onSave(prompt) }
                     .buttonStyle(PillButtonStyle())
                     .keyboardShortcut(.defaultAction)
-                    .disabled(snippet.trigger.trimmingCharacters(in: .whitespaces).isEmpty
-                              || snippet.expansion.isEmpty)
+                    .disabled(prompt.trigger.trimmingCharacters(in: .whitespaces).isEmpty
+                              || prompt.expansion.isEmpty)
             }
         }
         .padding(Theme.Space.lg)
