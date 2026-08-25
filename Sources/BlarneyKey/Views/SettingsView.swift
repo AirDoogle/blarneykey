@@ -17,7 +17,7 @@ struct SettingsView: View {
     var body: some View {
         Page(
             title: "Settings",
-            lead: "Audio never leaves your Mac. Transcription runs on the Neural Engine."
+            lead: "No account, no network, nothing to sign into. Recording and transcription both happen on this Mac."
         ) {
             appearanceSection
             hotkeySection
