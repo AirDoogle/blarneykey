@@ -43,11 +43,13 @@ final class PillWindow {
         self.panel = panel
 
         model.locked = controller.isLocked
+        model.command = controller.isCommand
         let started = Date()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15, repeats: true) { [weak self] _ in
             self?.model.level = controller.level
             self?.model.elapsed = Date().timeIntervalSince(started)
             self?.model.locked = controller.isLocked
+            self?.model.command = controller.isCommand
         }
     }
 
@@ -63,6 +65,7 @@ private final class PillModel: ObservableObject {
     @Published var level: Double = 0
     @Published var elapsed: TimeInterval = 0
     @Published var locked = false
+    @Published var command = false
 }
 
 private struct PillView: View {
@@ -74,7 +77,7 @@ private struct PillView: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.sm) {
-            Image(systemName: model.locked ? "lock.fill" : "mic.fill")
+            Image(systemName: model.command ? "wand.and.stars" : model.locked ? "lock.fill" : "mic.fill")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Theme.Colour.bodyMuted)
 

@@ -37,6 +37,9 @@ struct Session: Codable, Identifiable {
     /// The input device the audio came from, e.g. "MacBook Pro Microphone". Nil for older
     /// sessions, and whenever the default input could not be read.
     var inputDevice: String?
+    /// For a voice command: the rewritten text that was pasted. `text` holds the spoken
+    /// instruction, so word counts still measure what you actually said.
+    var commandResult: String?
 
     var wordCount: Int {
         text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).count
@@ -49,6 +52,15 @@ struct Session: Codable, Identifiable {
     var tokenCount: Int { max(wordCount > 0 ? 1 : 0, characterCount / 4) }
 
     var succeeded: Bool { failure == nil }
+
+    /// What this dictation actually put on screen: the rewrite for a command, else the text.
+    var deliveredText: String { commandResult ?? text }
+
+    /// The newest text worth pasting again. `sessions` is newest first. Failed deliveries
+    /// count, because text that never landed is exactly what you want back.
+    static func lastDelivered(in sessions: [Session]) -> String? {
+        sessions.first { !$0.deliveredText.isEmpty }?.deliveredText
+    }
 }
 
 /// Whether word-based stats are shown as words or an estimated token count.
@@ -374,6 +386,24 @@ struct Settings: Codable {
     var modelPrefix = "distil"
     var cliPath = "/opt/homebrew/bin/whisperkit-cli"
 
+    /// Names and places the speech model is told to expect.
+    var vocabulary: [String] = []
+
+    /// Phrases it keeps mishearing, corrected after transcription.
+    var wordFixes: [WordFix] = []
+
+    /// Hold the speech model in memory between dictations, for a shorter wait.
+    var keepEngineLoaded = true
+
+    /// Keys that rewrite the selected text by voice. None until you choose one.
+    var commandBindings: [KeyBinding] = []
+
+    /// In a terminal or editor, turn "at kb dot py" into an @path from the current project.
+    var projectAware = true
+
+    /// ⌃⌥V pastes the last dictation, wherever the cursor is now.
+    var pasteLastShortcut = true
+
     init() {}
 
     var primaryBinding: KeyBinding { bindings.first ?? .default }
@@ -405,6 +435,8 @@ struct Settings: Codable {
         case doubleTapToLock
         case minimumDuration, allowAllApps, cleanupEverywhere, typingWPM, wordUnit
         case modelPath, modelPrefix, cliPath
+        case vocabulary, wordFixes
+        case keepEngineLoaded, commandBindings, projectAware, pasteLastShortcut
     }
 
     /// Every field is optional on the way in, so adding a setting in a later version
@@ -442,6 +474,12 @@ struct Settings: Codable {
         modelPath = try c.decodeIfPresent(String.self, forKey: .modelPath) ?? modelPath
         modelPrefix = try c.decodeIfPresent(String.self, forKey: .modelPrefix) ?? modelPrefix
         cliPath = try c.decodeIfPresent(String.self, forKey: .cliPath) ?? cliPath
+        vocabulary = (try? c.decodeIfPresent([String].self, forKey: .vocabulary)) ?? vocabulary
+        wordFixes = (try? c.decodeIfPresent([WordFix].self, forKey: .wordFixes)) ?? wordFixes
+        keepEngineLoaded = (try? c.decodeIfPresent(Bool.self, forKey: .keepEngineLoaded)) ?? keepEngineLoaded
+        commandBindings = (try? c.decodeIfPresent([KeyBinding].self, forKey: .commandBindings)) ?? commandBindings
+        projectAware = (try? c.decodeIfPresent(Bool.self, forKey: .projectAware)) ?? projectAware
+        pasteLastShortcut = (try? c.decodeIfPresent(Bool.self, forKey: .pasteLastShortcut)) ?? pasteLastShortcut
     }
 
     func encode(to encoder: Encoder) throws {
@@ -462,5 +500,11 @@ struct Settings: Codable {
         try c.encode(modelPath, forKey: .modelPath)
         try c.encode(modelPrefix, forKey: .modelPrefix)
         try c.encode(cliPath, forKey: .cliPath)
+        try c.encode(vocabulary, forKey: .vocabulary)
+        try c.encode(wordFixes, forKey: .wordFixes)
+        try c.encode(keepEngineLoaded, forKey: .keepEngineLoaded)
+        try c.encode(commandBindings, forKey: .commandBindings)
+        try c.encode(projectAware, forKey: .projectAware)
+        try c.encode(pasteLastShortcut, forKey: .pasteLastShortcut)
     }
 }

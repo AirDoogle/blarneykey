@@ -89,7 +89,8 @@ final class MicTester: ObservableObject {
         Task.detached(priority: .userInitiated) {
             let text = (try? Transcriber.transcribe(url, settings: settings)) ?? ""
             if temporary { try? FileManager.default.removeItem(at: url) }
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmed = Vocabulary.apply(settings.wordFixes, to: text)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return }
             await MainActor.run {
                 self.transcript = self.transcript.isEmpty ? trimmed : self.transcript + " " + trimmed

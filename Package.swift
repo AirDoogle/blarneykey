@@ -12,6 +12,12 @@ let package = Package(
             // AppKit and SwiftUI callbacks here are all main-thread by construction;
             // Swift 6's strict checking has no way to see that, so stay on v5 mode.
             swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "BlarneyKeyTests",
+            dependencies: ["BlarneyKey"],
+            path: "Tests/BlarneyKeyTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]
 )

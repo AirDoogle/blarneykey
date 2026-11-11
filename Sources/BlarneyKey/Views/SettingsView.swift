@@ -23,15 +23,17 @@ struct SettingsView: View {
             hotkeySection
             insertionSection
             cleanupSection
+            CommandSettings(store: store, index: 4)
             AppsSettings(store: store, index: 5)
             speechSection
+            WordsSettings(store: store, index: 9)
             microphoneSection
             modelSection
             privacySection
         }
         .sheet(isPresented: $capturingKey) {
             KeyCaptureSheet(current: store.settings.primaryBinding,
-                            existing: store.settings.bindings) { binding in
+                            existing: store.settings.bindings + store.settings.commandBindings) { binding in
                 if !store.settings.bindings.contains(binding) {
                     store.settings.bindings.append(binding)
                     store.save()
@@ -87,7 +89,7 @@ struct SettingsView: View {
             Row(
                 title: "Your Blarney keys",
                 detail: store.settings.doubleTapToLock
-                    ? "Hold any of them to talk, or double-tap to lock dictation on. Tap again, press Escape, or click stop on the pill."
+                    ? "Hold any of them to talk, or double-tap to lock dictation on. Tap again or click stop on the pill. Escape throws a dictation away."
                     : "Hold any of them to talk."
             ) {
                 Button("Add a key") { capturingKey = true }
@@ -119,6 +121,10 @@ struct SettingsView: View {
                    path: \.showPill)
             RowDivider()
             toggle("Play start and stop sounds", detail: nil, path: \.playSounds)
+            RowDivider()
+            toggle("Paste last dictation with \u{2303}\u{2325}V",
+                   detail: "Puts your last dictation at the cursor, if it landed in the wrong place or nowhere. Holding a Blarney key and tapping V does the same, and so does the menu bar.",
+                   path: \.pasteLastShortcut)
         }
     }
 
@@ -258,6 +264,14 @@ struct SettingsView: View {
                 .frame(width: 64)
             }
             RowDivider()
+            toggle("Keep the speech engine ready",
+                   detail: "Holds the model in about 130 MB of memory, for about a second less waiting on each dictation. It listens only on this Mac.",
+                   path: \.keepEngineLoaded)
+            RowDivider()
+            toggle("Recognise project files",
+                   detail: "In a terminal or code editor, \u{201C}at kb dot py\u{201D} becomes @scripts/kb.py, and recently changed file names are listened for.",
+                   path: \.projectAware)
+            RowDivider()
             Row(title: "Minimum hold",
                 detail: "Shorter taps are ignored, so a stray keypress does nothing.") {
                 Stepper(value: binding(\.minimumDuration), in: 0.1...2.0, step: 0.05) {
@@ -282,7 +296,7 @@ struct SettingsView: View {
     // MARK: - Microphone
 
     private var microphoneSection: some View {
-        Section_(label: "MICROPHONE", index: 9) {
+        Section_(label: "MICROPHONE", index: 10) {
             Row(
                 title: "Input device",
                 detail: "BlarneyKey records from your Mac's input device. Pick one here to set it and try it out."
@@ -443,7 +457,7 @@ struct SettingsView: View {
 
     private var modelSection: some View {
         let models = discoveredModels()
-        return Section_(label: "MODEL", index: 10) {
+        return Section_(label: "MODEL", index: 11) {
             Row(
                 title: "Speech model",
                 detail: "Transcription runs on WhisperKit. Pick which model it loads — larger is more accurate, smaller is faster."
@@ -500,7 +514,7 @@ struct SettingsView: View {
     // MARK: - Privacy
 
     private var privacySection: some View {
-        Section_(label: "PRIVACY", index: 11) {
+        Section_(label: "PRIVACY", index: 12) {
             Row(title: "History",
                 detail: "\(store.sessions.count) sessions stored on this Mac, and nowhere else.") {
                 Button("Clear") { store.clearHistory() }

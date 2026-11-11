@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var window: NSWindow?
     private var cancellables = Set<AnyCancellable>()
+    private let escapeTap = EscapeTap()
+    private let pasteLastShortcut = GlobalShortcut()
 
     // MARK: - Lifecycle
 
@@ -64,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         hotKey.stop()
+        SpeechServer.shared.stop()
         store.writeNow()
     }
 
@@ -84,11 +87,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             else if self.store.settings.doubleTapToLock { self.dictation.begin(locked: true) }
             else { self.dictation.begin(locked: false) }
         }
-        hotKey.onEscape = { [weak self] in
-            guard let self, self.dictation.isLocked else { return }
-            self.dictation.stop()
-        }
+        hotKey.commandBindings = store.settings.commandBindings
+        hotKey.onCommandPress = { [weak self] in self?.dictation.begin(locked: false, command: true) }
+        hotKey.onCommandRelease = { [weak self] in self?.dictation.endIfHolding() }
+        hotKey.onShiftWhileHeld = { [weak self] in self?.dictation.upgradeToCommand() }
+        hotKey.onEscape = { [weak self] in self?.dictation.cancel() }
+        escapeTap.onEscape = { [weak self] in self?.dictation.cancel() }
+        escapeTap.takesV = { [weak self] in self?.dictation.isHolding ?? false }
+        escapeTap.onPasteLast = { [weak self] in self?.dictation.pasteLastInsteadOfRecording() }
         hotKey.start()
+
+        store.$settings
+            .map(\.commandBindings)
+            .removeDuplicates()
+            .sink { [weak self] keys in self?.hotKey.commandBindings = keys }
+            .store(in: &cancellables)
+
+        ClipboardWatcher.shared.start()
+        pasteLastShortcut.onFire = { [weak self] in self?.dictation.pasteLast() }
+        store.$settings
+            .map(\.pasteLastShortcut)
+            .removeDuplicates()
+            .sink { [weak self] enabled in self?.pasteLastShortcut.setEnabled(enabled) }
+            .store(in: &cancellables)
+
+        // Start the engine now and keep it matching the model and on/off settings.
+        store.$settings
+            .map(SpeechServer.Config.init)
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                DispatchQueue.main.async { SpeechServer.shared.sync(self.store.settings) }
+            }
+            .store(in: &cancellables)
 
         // Keep the monitor in step when the hotkey is changed in Settings.
         store.$settings
@@ -124,6 +155,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] state in
                 guard let self else { return }
+                switch state {
+                case .recording, .transcribing: self.escapeTap.setActive(true)
+                default: self.escapeTap.setActive(false)
+                }
                 switch state {
                 case .idle:
                     self.setIcon("waveform")
@@ -177,6 +212,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                           #selector(toggleDictation))
         toggle.keyEquivalent = "d"
         menu.addItem(toggle)
+        let pasteLast = item("Paste last dictation", #selector(pasteLastDictation))
+        if store.settings.pasteLastShortcut {
+            pasteLast.keyEquivalent = "v"
+            pasteLast.keyEquivalentModifierMask = [.control, .option]
+        }
+        menu.addItem(pasteLast)
+        if dictation.canRetry {
+            menu.addItem(item("Retry last recording", #selector(retryLast)))
+        }
 
         // Always reachable with the mouse, so a badly chosen key is one click from fixed.
         if store.settings.bindings != [.default] {
@@ -213,6 +257,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleDictation() {
         dictation.toggleLocked()
+    }
+
+    @objc private func pasteLastDictation() {
+        dictation.pasteLast()
+    }
+
+    @objc private func retryLast() {
+        dictation.retryLast()
     }
 
     @objc private func resetHotKey() {

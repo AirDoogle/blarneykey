@@ -21,8 +21,10 @@ inference locally.
 - **Push to talk** on any of 16 preset keys: left and right ⌘ ⌥ ⌃ ⇧, fn, or F13–F19.
   **Set up as many as you like** — one keyboard's spare key is another keyboard's missing
   key, so an external board and the built-in one can each have their own.
-  Hold to dictate, or double-tap to lock it on for longer stretches, then tap again,
-  press Escape, or hit stop on the pill.
+  Hold to dictate, or double-tap to lock it on for longer stretches, then tap again
+  or hit stop on the pill. **Escape throws a dictation away** and doesn't reach the app
+  underneath; *Retry last recording* in the menu-bar menu brings it back if you change
+  your mind.
 - **Or record your own key.** Press a spare key on an external keyboard and use that.
   Keys needed for typing (letters, Return, Space, Tab, Delete, Escape) are refused
   outright; keys that merely have another job warn you first. If you do bind something
@@ -33,6 +35,29 @@ inference locally.
   non-activating panel, so it never steals focus from what you're dictating into.
 - **Prompts** — say "weekly business review" and it pastes the whole template. Matching
   ignores case, punctuation and messy spacing, because speech models add all three.
+- **Words** — list the names and places you use, and Whisper is told to expect them on
+  dictations up to 30 seconds. Add corrections for anything it still mishears; those run
+  on every dictation. Both stay in your local settings.
+- **Paste last dictation** — hold your Blarney key and tap V (or press ⌃⌥V, or use the
+  menu-bar menu) and it puts your last dictation at the
+  cursor, for when it landed in the wrong place or somewhere that couldn't take text.
+- **Teach it from history** — open a past dictation, choose *Teach it a correction*, and
+  fix the words. BlarneyKey works out what changed and offers each one as a correction.
+  Ordinary words start unticked, since replacing "their" everywhere would do damage.
+- **Project files** — in a terminal or code editor inside a git repository, say "at kb dot
+  py" and it writes `@scripts/kb.py`, the form Claude Code and similar tools expect. For a
+  name with no extension, say "at file vocabulary". Names of recently changed files are
+  listened for too.
+- **Command mode** — select some text, hold ⇧ with your Blarney key and say what to
+  change: "make this shorter". (Or set a separate command key in Settings.) In Claude Code
+  in a terminal, highlight any part of your unsent draft and the whole draft is rewritten
+  in place; highlight something in its output and a rewritten copy lands at the cursor. The rewrite runs on Apple's on-device model and
+  lands as a paste, so ⌘Z undoes it. Needs macOS 26 and Apple Intelligence.
+- **Ready when you are** — the speech model stays loaded in a small local process (about
+  130 MB, listening only on 127.0.0.1), which saves about a second per dictation. Turn it
+  off under Speech. Clips over 30 seconds use the one-shot CLI either way.
+- **No phantom text** — Whisper invents "Thank you." from near-silence. Those are dropped
+  when the audio shows nobody spoke, and a dead microphone gets a warning.
 - **App allowlist** — restrict where dictation can paste, per app, with an *allow
   everything* switch that's on by default. On your own machine there's no reason to
   fence yourself in; turn it off if you want the discipline.

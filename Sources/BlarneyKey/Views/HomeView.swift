@@ -393,11 +393,15 @@ private struct DayGroup: View {
 private struct SessionRow: View {
     let session: Session
     @State private var expanded = false
+    @State private var correcting = false
 
     var body: some View {
         VStack(spacing: 0) {
             summary
             if expanded { detail }
+        }
+        .sheet(isPresented: $correcting) {
+            CorrectionSheet(store: Store.shared, text: session.text) { correcting = false }
         }
     }
 
@@ -474,10 +478,15 @@ private struct SessionRow: View {
                       by: session.cleanModel ?? Cleanup.modelName,
                       seconds: session.cleanSeconds)
             }
-            stage("Final",
-                  text: session.text,
-                  by: deliveryLabel,
-                  seconds: session.pasteSeconds)
+            if let result = session.commandResult {
+                stage("Instruction", text: session.text, by: nil, seconds: nil)
+                stage("Rewritten", text: result, by: session.cleanModel, seconds: session.cleanSeconds)
+            } else {
+                stage("Final",
+                      text: session.text,
+                      by: deliveryLabel,
+                      seconds: session.pasteSeconds)
+            }
 
             Rectangle()
                 .fill(Theme.Colour.dividerSoft)
@@ -486,6 +495,11 @@ private struct SessionRow: View {
 
             valueRow("Focused app", session.bundleID.isEmpty ? session.appName : session.bundleID)
             valueRow("Captured", "\(Format.latency(session.duration))s of audio")
+
+            if session.succeeded, !session.text.isEmpty, session.commandResult == nil {
+                Button("Teach it a correction") { correcting = true }
+                    .buttonStyle(PillButtonStyle())
+            }
         }
         .padding(.horizontal, Theme.Space.md)
         .padding(.bottom, Theme.Space.md)

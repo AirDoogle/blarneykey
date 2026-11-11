@@ -19,65 +19,105 @@ enum TextInserter {
     /// the chord coalesced away by some apps.
     private static let gap: UInt32 = 12_000
 
-    static func insert(_ text: String, mode: InsertionMode = .paste) {
+    /// `deletingFirst` backspaces are sent before the text, from the end of the line, to
+    /// clear a terminal draft that the text replaces.
+    static func insert(_ text: String, mode: InsertionMode = .paste, deletingFirst: Int = 0) {
         guard !text.isEmpty else { return }
         switch mode {
-        case .paste: pasteViaClipboard(text)
-        case .type: typeDirectly(text)
+        case .paste: pasteViaClipboard(text, deletingFirst: deletingFirst)
+        case .type:
+            DispatchQueue.global(qos: .userInitiated).async {
+                clear(deletingFirst)
+                typeDirectly(text)
+            }
         }
+    }
+
+    /// ⌃E to the end of the line, then backspaces. Readline and Claude Code both read ⌃E as
+    /// "end of line", and a backspace at an empty prompt does nothing.
+    private static func clear(_ count: Int) {
+        guard count > 0, let source = CGEventSource(stateID: .combinedSessionState) else { return }
+        waitForModifiersReleased(timeout: 2)
+        press(14, flags: .maskControl, source: source) // E
+        for _ in 0..<count { press(51, flags: [], source: source) } // Delete
+        usleep(gap)
+    }
+
+    private static func press(_ key: CGKeyCode, flags: CGEventFlags, source: CGEventSource) {
+        let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true)
+        let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
+        down?.flags = flags
+        up?.flags = flags
+        down?.post(tap: tap)
+        up?.post(tap: tap)
+        usleep(1_500)
     }
 
     // MARK: - Paste
 
-    private static func pasteViaClipboard(_ text: String) {
+    private static func pasteViaClipboard(_ text: String, deletingFirst: Int = 0) {
         let pb = NSPasteboard.general
+        let saved = snapshot()
 
-        // Snapshot every representation, not just the string, so an image or rich text on
-        // the clipboard survives.
-        let saved: [NSPasteboard.PasteboardType: Data] = pb.pasteboardItems?.first
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        ClipboardWatcher.shared.noteOwnWrite()
+
+        // Post off the main thread: the inter-event gaps would otherwise stall the UI, and
+        // a busy main thread is a poor place to be feeding the event system from.
+        DispatchQueue.global(qos: .userInitiated).async {
+            clear(deletingFirst)
+            pressCommand(key: 9) // V
+
+            // Chromium and Electron apps service the paste asynchronously, so give them
+            // real time before handing the clipboard back.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                restore(saved)
+            }
+        }
+    }
+
+    /// Every representation of the clipboard, not just the string, so an image or rich
+    /// text survives.
+    static func snapshot() -> [NSPasteboard.PasteboardType: Data] {
+        NSPasteboard.general.pasteboardItems?.first
             .map { item in
                 item.types.reduce(into: [:]) { dict, type in
                     if let data = item.data(forType: type) { dict[type] = data }
                 }
             } ?? [:]
-
-        pb.clearContents()
-        pb.setString(text, forType: .string)
-
-        // Post off the main thread: the inter-event gaps would otherwise stall the UI, and
-        // a busy main thread is a poor place to be feeding the event system from.
-        DispatchQueue.global(qos: .userInitiated).async {
-            pressCommandV()
-
-            // Chromium and Electron apps service the paste asynchronously, so give them
-            // real time before handing the clipboard back.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                guard !saved.isEmpty else { return }
-                pb.clearContents()
-                for (type, data) in saved { pb.setData(data, forType: type) }
-            }
-        }
     }
 
-    /// Sends the whole chord as real key events: ⌘ down, V down, V up, ⌘ up.
+    static func restore(_ saved: [NSPasteboard.PasteboardType: Data]) {
+        guard !saved.isEmpty else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        for (type, data) in saved { pb.setData(data, forType: type) }
+        ClipboardWatcher.shared.noteOwnWrite()
+    }
+
+    /// Sends the whole chord as real key events: ⌘ down, key down, key up, ⌘ up.
     ///
     /// Setting `.maskCommand` on the V event alone is enough for native AppKit apps, but
     /// Chromium-based ones (Electron: Notion, Slack, VS Code, Discord) track modifier
     /// state from the modifier key events themselves. Without a genuine ⌘ keyDown they see
     /// a bare "v" and discard it.
-    private static func pressCommandV() {
+    static func pressCommand(key: CGKeyCode) {
+        // A key still held changes the chord: with Shift, Terminal reads ⌘V as Paste
+        // Selection. Shift + Blarney key is the command trigger, so give you a moment to
+        // let go.
+        waitForModifiersReleased(timeout: 2)
         guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
 
         let commandKey: CGKeyCode = 55
-        let vKey: CGKeyCode = 9
 
         let commandDown = CGEvent(keyboardEventSource: source, virtualKey: commandKey, keyDown: true)
         commandDown?.flags = .maskCommand
 
-        let vDown = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true)
+        let vDown = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true)
         vDown?.flags = .maskCommand
 
-        let vUp = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false)
+        let vUp = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
         vUp?.flags = .maskCommand
 
         let commandUp = CGEvent(keyboardEventSource: source, virtualKey: commandKey, keyDown: false)
@@ -92,31 +132,41 @@ enum TextInserter {
         commandUp?.post(tap: tap)
     }
 
+    /// Waits until no modifier key is down. Returns false if one still is at the timeout.
+    @discardableResult
+    static func waitForModifiersReleased(timeout: TimeInterval) -> Bool {
+        let held: CGEventFlags = [.maskControl, .maskAlternate, .maskShift, .maskCommand]
+        let deadline = Date().addingTimeInterval(timeout)
+        while !CGEventSource.flagsState(.combinedSessionState).isDisjoint(with: held) {
+            if Date() > deadline { return false }
+            usleep(25_000)
+        }
+        return true
+    }
+
     // MARK: - Type
 
-    /// Types the text as Unicode input. `keyboardSetUnicodeString` is reliable in small
+    /// Types the text as Unicode input. Blocks, so callers run it off the main thread. `keyboardSetUnicodeString` is reliable in small
     /// pieces, so this walks the string in chunks rather than sending it in one event.
     private static func typeDirectly(_ text: String) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
-            let units = Array(text.utf16)
-            let chunkSize = 16
+        guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
+        let units = Array(text.utf16)
+        let chunkSize = 16
 
-            for start in stride(from: 0, to: units.count, by: chunkSize) {
-                let chunk = Array(units[start..<min(start + chunkSize, units.count)])
-                guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
-                      let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
-                else { continue }
+        for start in stride(from: 0, to: units.count, by: chunkSize) {
+            let chunk = Array(units[start..<min(start + chunkSize, units.count)])
+            guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+            else { continue }
 
-                down.flags = []
-                up.flags = []
-                down.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
-                up.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+            down.flags = []
+            up.flags = []
+            down.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+            up.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
 
-                down.post(tap: tap)
-                up.post(tap: tap)
-                usleep(4_000)
-            }
+            down.post(tap: tap)
+            up.post(tap: tap)
+            usleep(4_000)
         }
     }
 

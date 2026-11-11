@@ -23,7 +23,18 @@ enum Transcriber {
         }
     }
 
-    static func transcribe(_ audio: URL, settings: Settings) throws -> String {
+    /// Uses the loaded engine for short clips and the CLI for anything else, including
+    /// whenever the engine is not available.
+    static func transcribe(_ audio: URL, settings: Settings,
+                           projectWords: [String] = []) throws -> String {
+        let seconds = Vocabulary.duration(of: audio)
+        let prompt = Vocabulary.prompt(words: settings.vocabulary + projectWords, audioSeconds: seconds)
+
+        if let seconds, seconds <= SpeechServer.maxSeconds,
+           let text = SpeechServer.shared.transcribe(audio, language: settings.language, prompt: prompt) {
+            return withoutNoise(text)
+        }
+
         guard FileManager.default.isExecutableFile(atPath: settings.cliPath) else {
             throw Failure.cliMissing(settings.cliPath)
         }
@@ -41,6 +52,9 @@ enum Transcriber {
         ]
         if let language = settings.language, !language.isEmpty {
             args += ["--language", language]
+        }
+        if let prompt {
+            args += ["--prompt", prompt]
         }
 
         let process = Process()
@@ -64,12 +78,15 @@ enum Transcriber {
             )
         }
 
-        let text = String(data: stdout, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return withoutNoise(String(data: stdout, encoding: .utf8) ?? "")
+    }
+
+    static func withoutNoise(_ transcript: String) -> String {
+        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Whisper emits these markers when it hears nothing but room noise. Only the
         // bracketed ones are safe to drop — plenty of real dictation is two words long.
-        let noise = ["(silence)", "[BLANK_AUDIO]", "[silence]", "[ Silence ]", "..."]
+        let noise = ["(silence)", "[BLANK_AUDIO]", "[silence]", "[ Silence ]", "...", "."]
         return noise.contains(text) ? "" : text
     }
 }
