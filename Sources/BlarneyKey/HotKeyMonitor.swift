@@ -142,10 +142,15 @@ final class EscapeTap {
     var takesV: () -> Bool = { false }
 
     private var tap: CFMachPort?
+    /// Whether a dictation is running. The tap swallows nothing while this is false, even
+    /// if macOS turned it back on: a timeout notice queued during a dictation used to
+    /// re-enable the tap after it ended, and from then on every Escape was eaten.
+    private var active = false
 
     var isInstalled: Bool { tap != nil }
 
     func setActive(_ active: Bool) {
+        self.active = active
         if active, tap == nil { create() }
         if let tap { CGEvent.tapEnable(tap: tap, enable: active) }
     }
@@ -155,10 +160,10 @@ final class EscapeTap {
             guard let context else { return Unmanaged.passUnretained(event) }
             let this = Unmanaged<EscapeTap>.fromOpaque(context).takeUnretainedValue()
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                if let tap = this.tap { CGEvent.tapEnable(tap: tap, enable: true) }
+                if this.active, let tap = this.tap { CGEvent.tapEnable(tap: tap, enable: true) }
                 return Unmanaged.passUnretained(event)
             }
-            guard type == .keyDown else { return Unmanaged.passUnretained(event) }
+            guard type == .keyDown, this.active else { return Unmanaged.passUnretained(event) }
             let key = event.getIntegerValueField(.keyboardEventKeycode)
             let repeated = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
             switch key {
